@@ -11,20 +11,24 @@ import os
 if os.name == "nt":
     width = 1243
     height = 705
-    lyricsColumn = 7
     lyricsTextWidth = 57
-    lyricsTextHeight = 18
+    lyricsTextHeight = 50
     lyricDescWinWidth = 405
-    lyricDescWinHeight = 520
-    filesWidth = 5000
-    filesHeight = 500
+    lyricDescWinHeight = 500
+    musicLbFrame = 2000
+    musicLbHeight = 15
+    filesWidth = 2500
+    filesHeight = 800
     renameWidth = 355
     renameHeight = 75
-    metadataEntryWidth = 70
-    convertWidth1 = 470
+    metadataEntryWidth = 81
+    convertBitrateWidth = 425
+    convertBitrateHeight = 80
     convertWidth2 = 55
     convertHeightWin = 285
-    bitrateColWidth = 40
+    convertWidthWin = 500
+    bitrateTitleColWidth = 400
+    bitrateBitrateColWidth = 60
     editHeight = 2
     missingMDHeight = 15
     missingMDWidth = 125
@@ -34,6 +38,9 @@ if os.name == "nt":
     moveFileHeight = 120
     dispInfoWidth = 800
     dispInfoHeight = 600
+    convertMP3Width = 800
+    albumartWinHeight = 600
+    albumartWinWidth = 800
 
 if os.name == "posix":
     width = 1255
@@ -48,11 +55,8 @@ if os.name == "posix":
     metadataEntryWidth = 60
     convertWidth1 = 490
     convertWidth2 = 45
-    convertHeightWin = 285
+    convertHeightWin = 265
     bitrateColWidth = 50
     editHeight = 3
     missingMDHeight = 17
     missingMDWidth = 106
-    lyricDescWinWidth = 480
-    lyricDescWinHeight = 560
-    
