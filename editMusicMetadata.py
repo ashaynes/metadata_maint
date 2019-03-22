@@ -127,6 +127,7 @@ class EditMetadata(Frame):
 			self.lyricsText.delete("0.0", END)
 			self.lyricsText.insert("0.0", lyrics)
 			self.lyricsText.config(state=DISABLED, cursor="arrow")
+			self.lyricsText.update()
 			
 			# load music file, else return error
 			song_header = self.song.pprint().split("\n")[0].split(", ")
@@ -177,10 +178,11 @@ class EditMetadata(Frame):
 				self.stop.config(state=DISABLED)
 
 		'''set initial values to certain parameters used within the program'''
-		os.chdir('/home/alex/Music/') if os.name == "posix" else os.chdir("C:\\Users\\Alex\\Music\\")
 		if os.name == "nt":
+			os.chdir("C:\\Code\\Music Metadata Editor\\")
 			self.default = f"{os.getcwd()}\\No Image Available.jpg"
 		if os.name == "posix":
+			os.chdir('/home/alex/Music/')
 			self.default = f"{os.getcwd()}/No Image Available.jpg"
 		
 		self.entries = []
@@ -467,29 +469,19 @@ class EditMetadata(Frame):
 					self.getAlbumArt.config(text="Add Album Art", state=NORMAL, command=functools.partial(
 						albumArt.addArt_Single, (self, master)))
 					self.getAlbumArt.update()	
-				
-			# if "TCON" in self.song.keys():
-			# 	self.menu.add_command(label="Edit Lyrics", command=lyricsDesc(self)) if self.song['TCON'][0] != "Podcast" else self.menu.add_command(label="Edit Description", command=lyricsDesc(self))
-			#
-			# 	# change self.lyricsWindowTitle based on TCON tag; display lyrics from USLT tag in MP3
-			# 	self.lyrics.config(text="Description") if self.song['TCON'][0] == "Podcast" else self.lyrics.config(text="Lyrics")
-			# 	self.lyrics.update()
-			# else:
-			# 	self.state.set(True)
-			# 	self.mode.set("Edit Mode")
-			# 	self.save.config(state=NORMAL)
-
+			
+			# get and display song lyrics/podcast description from metadata, if any
 			self.lyricsText.delete("0.0", END)
 			if 'TCON' in self.song.keys():
-				for tag in self.song.keys():
-					if "USLT" in tag:
-						lyricsText = self.song[tag]
-						break
-					else:
-						lyricsText = " -- No lyrics available -- " if self.song['TCON'][0] != "Podcast" else " -- No description available -- "
+				usltInKeys = [tag for tag in self.song.keys() if "USLT" in tag]
+				if len(usltInKeys) == 1:
+					lyricsText = self.song[usltInKeys[0]]
+				else:
+					lyricsText = " -- No lyrics available -- " if self.song['TCON'][0] != "Podcast" else " -- No podcast description available -- "
 			else:
-				lyricsText = "-- Cannot get lyric/podcast information --"
+				lyricsText = "-- Cannot get lyrics or podcast information --"
 			self.lyricsText.insert("0.0", lyricsText)
+			self.lyricsText.update()
 					
 			# determine when "Search Missing Metadata" option is available for selection in Metadata menu
 			# should only be available when there is at least one metadata field (self.cats) that is empty (legit)
@@ -1298,7 +1290,6 @@ if __name__ == '__main__':
 
 	master = Tk()
 	EditMetadata(master)
-	master.state('zoomed')
 	master.title("MP3 Music Maintenance")
 
 	# add program icon

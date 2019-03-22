@@ -10,11 +10,12 @@ from unidecode import unidecode
 import re
 import tkinter as tk
 import sqlite3 as sq
+import blowfish
 
 import windows.customWindows as windows
 import helpers.defaults as defaults
 
-IMAGE_PATH = "C:\\Users\\Alex\\Documents\\Downloaded Album Art\\"
+IMAGE_PATH = "C:\\Users\\Alex\\Pictures\\Downloaded Album Art\\"
 count = 0
 
 def addArt_Single(info):
@@ -87,6 +88,7 @@ def addArt(info):
         os.chdir(f'{IMAGE_PATH}\\temp')
         f = os.listdir()[0]
         f_rename = re.sub('_\d+', '', f)
+        
         os.rename(f, f"{IMAGE_PATH}\\{f_rename}")
 
     # clear all other images from "temp" folder
@@ -220,13 +222,9 @@ def isAlbumArtInFile(file):
             albumArtPresent = [albumArtTitle in file for file in os.listdir()]
             
             if True in albumArtPresent:
-                for music_file in os.listdir():
-                    if albumArtTitle + ".png" in music_file:
-                        resizeArt(albumArtTitle + ".png")
-                        break
-                    else:
-                        resizeArt(albumArtTitle + ".jpg")
-                        break
+                albumArtFound = os.listdir()[albumArtPresent.index(True)]
+                if not(albumArtFound.endswith("jpg")):
+                    resizeArt(albumArtFound)
                 return True
             else:
                 return False
