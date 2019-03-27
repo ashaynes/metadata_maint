@@ -12,8 +12,8 @@ import tkinter as tk
 import sqlite3 as sq
 import blowfish
 
-import windows.customWindows as windows
-import helpers.defaults as defaults
+import windows.customWindowSize as windows
+import utils.defaults as defaults
 
 IMAGE_PATH = "C:\\Users\\Alex\\Pictures\\Downloaded Album Art\\"
 count = 0

@@ -7,51 +7,29 @@ import requests
 import requests_cache
 from tkinter.messagebox import *
 
-import windows.customWindows as windows
-import helpers.defaults as defaults
+import windows.customWindowSize as windows
+import utils.defaults as defaults
 
-URLS = ["http://www.metrolyrics.com/{0}-lyrics-{1}.html"]
-USLT_FOUND = False
-
-def lyrics(obj):
+def lyrics(self):
 	'''
 	Allows user to view and edit description and/or lyrics of music file
 	'''
-	s = obj
+	URLS = ["http://www.metrolyrics.com/{0}-lyrics-{1}.html"]
+	USLT_FOUND = False
 
-	def switchModes():
-		modes.set("Edit Mode") if state.get() == True else modes.set("View Mode")
-		textbox.config(state='normal', cursor="xterm") if state.get() == True else textbox.config(state='disabled', cursor="arrow")
-		save.config(state='normal') if state.get() == True else save.config(state=DISABLED)
-	
-	def saveFile():
-		# remove old USLT tag(s) from MP3 file and add new USLT tag to file
-		listOfKeys = list(s.song.keys())
-		for key in listOfKeys:
-			if 'USLT' in key:
-				s.song.pop(key)
-		
-		s.song['USLT'] = USLT(encoding=3, lang=u'eng', text=textbox.get(1.0, 'end'))
-		s.song.save(s.song_path.get(), v2_version=3)
-		showinfo("Song Description","Description has been saved!") if s.song['TCON'] == "Podcast" else next
-		closeWindow()
-
-	def closeWindow():
-		s.saveLDWin.destroy()
-
-	for tags in s.song.keys():
+	for tags in self.song.keys():
 		if "USLT" in tags:
 			USLT_FOUND = True
-			lyrics = s.song[tags]
+			lyrics = self.song[tags]
 
-	if s.song['TCON'][0] != "Podcast":
-		search_artist = s.song['TPE2'][0].replace(" ","-").lower()
-		search_song_title = s.song['TIT2'][0].replace(" ","-").lower()
+	if self.song['TCON'][0] != "Podcast":
+		search_artist = self.song['TPE2'][0].replace(" ","-").lower()
+		search_song_title = self.song['TIT2'][0].replace(" ","-").lower()
 
-	artist = s.song['TPE2'][0] if 'TPE2' in s.song.keys() else "No Artist"
-	song_title = s.song['TIT2'][0] if 'TIT2' in s.song.keys() else "No Song Title"
+	artist = self.song['TPE2'][0] if 'TPE2' in self.song.keys() else "No Artist"
+	song_title = self.song['TIT2'][0] if 'TIT2' in self.song.keys() else "No Song Title"
 
-	if USLT_FOUND is False and s.song['TCON'][0] is not "Podcast":
+	if USLT_FOUND is False and self.song['TCON'][0] is not "Podcast":
 		for url in URLS:
 			completeUrl = url.format(search_song_title, search_artist)
 
@@ -68,23 +46,23 @@ def lyrics(obj):
 			else:
 				lyrics = ""
 
-	s.saveLDWin = tk.Toplevel()
+	self.saveLDWin = tk.Toplevel()
 	# change the heading depending on the genre type
-	s.saveLDWin.title("'{0}' {1}".format(song_title, "Description")) if s.song['TCON'][0] is 'Podcast' \
-		else s.saveLDWin.title("'{0}' {1}".format(song_title, "Lyrics"))
-	pos = windows.centerWindow(s.saveLDWin, defaults.lyricDescWinWidth, defaults.lyricDescWinHeight)
-	s.saveLDWin.geometry('%dx%d+%d+%d' % (pos[0], pos[1], pos[2], pos[3]))
+	self.saveLDWin.title("'{0}' {1}".format(song_title, "Description")) if self.song['TCON'][0] is 'Podcast' \
+		else self.saveLDWin.title("'{0}' {1}".format(song_title, "Lyrics"))
+	pos = windows.centerWindow(self.saveLDWin, defaults.lyricsWinWidth, defaults.lyricsWinHeight)
+	self.saveLDWin.geometry('%dx%d+%d+%d' % (pos[0], pos[1], pos[2], pos[3]))
 
-	album_name = s.song['TALB'][0] if 'TALB' in s.song.keys() else "No Album"
-	track = s.song['TRCK'][0] if 'TRCK' in s.song.keys() else "No Track"
-	disc_number = s.song['TPOS'][0] if 'TPOS' in s.song.keys() else "No Disc Number"
+	album_name = self.song['TALB'][0] if 'TALB' in self.song.keys() else "No Album"
+	track = self.song['TRCK'][0] if 'TRCK' in self.song.keys() else "No Track"
+	disc_number = self.song['TPOS'][0] if 'TPOS' in self.song.keys() else "No Disc Number"
 
-	tk.Label(s.saveLDWin, text=f"Title: {song_title}", font="Arial 10 italic", justify=tk.CENTER).grid(row=1, columnspan=3, sticky=tk.E+tk.W)
-	tk.Label(s.saveLDWin, text=f"Album: {album_name}", font="Arial 10 italic", justify=tk.CENTER).grid(row=2, columnspan=3, sticky=tk.E+tk.W)
-	tk.Label(s.saveLDWin, text=f"Track: {track}", font="Arial 10 italic", justify=tk.CENTER).grid(row=3, columnspan=3, sticky=tk.E+tk.W)
-	tk.Label(s.saveLDWin, text=f"Disc: {disc_number}", font="Arial 10 italic", justify=tk.CENTER).grid(row=4, columnspan=3, sticky=tk.E+tk.W)
+	tk.Label(self.saveLDWin, text=f"Title: {song_title}", font="Arial 10 italic", justify=tk.CENTER).grid(row=1, columnspan=3, sticky=tk.E+tk.W)
+	tk.Label(self.saveLDWin, text=f"Album: {album_name}", font="Arial 10 italic", justify=tk.CENTER).grid(row=2, columnspan=3, sticky=tk.E+tk.W)
+	tk.Label(self.saveLDWin, text=f"Track: {track}", font="Arial 10 italic", justify=tk.CENTER).grid(row=3, columnspan=3, sticky=tk.E+tk.W)
+	tk.Label(self.saveLDWin, text=f"Disc: {disc_number}", font="Arial 10 italic", justify=tk.CENTER).grid(row=4, columnspan=3, sticky=tk.E+tk.W)
 
-	textbox = tk.Text(s.saveLDWin, font='Times 10', width=65, wrap=tk.WORD)
+	textbox = tk.Text(self.saveLDWin, font='Times 10', width=65, wrap=tk.WORD)
 	textbox.grid(row=6, columnspan=3, pady=10)
 	textbox.insert(tk.END, lyrics)
 	textbox.config(state=tk.DISABLED, cursor="arrow")
@@ -92,10 +70,10 @@ def lyrics(obj):
 
 	state = tk.BooleanVar()
 	modes = tk.StringVar()
-	mode = tk.Checkbutton(s.saveLDWin, indicatoron=False, textvariable=modes, variable=state, onvalue=True, offvalue=False, width=15, height=2, \
+	mode = tk.Checkbutton(self.saveLDWin, indicatoron=False, textvariable=modes, variable=state, onvalue=True, offvalue=False, width=15, height=2, \
 		command=switchModes)
 	mode.grid(row=7, column=0, padx=10)
-	save = tk.Button(s.saveLDWin, command=saveFile)
+	save = tk.Button(self.saveLDWin, command=saveFile)
 
 	if textbox.get(0.0, tk.END) is '\n':
 		modes.set("Edit Mode")
@@ -107,7 +85,27 @@ def lyrics(obj):
 		textbox.config(state=tk.DISABLED, cursor="arrow")
 		state.set(False)
 		save.config(state=tk.DISABLED)
-	save.config(text="Save Description", width=15) if s.song['TCON'][0] == "Podcast" else save.config(text="Save Lyrics", width=15)
+	save.config(text="Save Description", width=15) if self.song['TCON'][0] == "Podcast" else save.config(text="Save Lyrics", width=15)
 	save.grid(row=7, column=1, padx=10)
-	close = tk.Button(s.saveLDWin, text="Close", width=15, command=closeWindow)
+	close = tk.Button(self.saveLDWin, text="Close", width=15, command=closeWindow)
 	close.grid(row=7, column=2, padx=10)
+
+def switchModes():
+	modes.set("Edit Mode") if state.get() == True else modes.set("View Mode")
+	textbox.config(state='normal', cursor="xterm") if state.get() == True else textbox.config(state='disabled', cursor="arrow")
+	save.config(state='normal') if state.get() == True else save.config(state="disabled")
+
+def saveFile():
+	# remove old USLT tag(self) from MP3 file and add new USLT tag to file
+	listOfKeys = list(self.song.keys())
+	for key in listOfKeys:
+		if 'USLT' in key:
+			self.song.pop(key)
+	
+	self.song['USLT'] = USLT(encoding=3, lang=u'eng', text=textbox.get(1.0, 'end'))
+	self.song.save(self.song_path.get(), v2_version=3)
+	showinfo("Song Description","Description has been saved!") if self.song['TCON'] == "Podcast" else next
+	closeWindow()
+
+def closeWindow():
+	self.saveLDWin.destroy()

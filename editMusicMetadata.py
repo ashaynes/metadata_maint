@@ -1,6 +1,6 @@
 # usr/bin/env python3
 
-from mutagen.id3 import ID3, TRCK, TCON, TPOS, TALB, TIT2, TPE1, TPE2, TDRC, APIC, USLT, TBPM, ID3NoHeaderError
+from mutagen.id3 import TRCK, TCON, TPOS, TALB, TIT2, TPE1, TPE2, TDRC, APIC, USLT, TBPM, ID3NoHeaderError
 from mutagen.mp3 import MP3, HeaderNotFoundError
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
@@ -9,10 +9,9 @@ from selenium.webdriver.common.by import By
 from selenium import webdriver
 from tkinter.messagebox import *
 from tkinter.filedialog import *
-from pydub import AudioSegment
-from pydub.exceptions import *
 from bs4 import BeautifulSoup
 import tkinter.font as tkFont
+import ffmpy
 import PIL.Image
 import PIL.ImageTk
 import pygame as pg
@@ -31,20 +30,18 @@ import re
 import io
 import musicbrainzngs as mb
 
-import helpers.defaults as default
+import audio.playbackMusicFile as playBack
+import utils.defaults as default
 import albumArt.albumArt as albumArt
-import lyrics.lyrics as lyricsDesc
-import windows.customWindows as windows
-
-paused = False
+import lyrics.lyrics as lyrics
+import windows.customWindowSize as windows
 
 '''
 TODO:
 1 -> Create 'displayInfo' function for Search options to display metadata on double-click, differentiate between artist, album and song (WIP)
-2 -> Make album art download pull songs from the same album and update those as well [using musicbrainzngs library]
-3 -> Create function that allows an online search of MP3s to download and downloads the selected song to the default directory ??
-4 -> Create function that downloads a top 40 list, based on genre selected
-'''
+2 -> Create function that allows an online search of MP3s to download and downloads the selected song to the default directory ??
+3 -> Create function that downloads a top 40 list, based on genre selected (BillboardAPI)
+''' 
 
 class mdict(dict):
 	def __setitem__(self, key, value):
@@ -53,129 +50,21 @@ class mdict(dict):
 
 class EditMetadata(Frame):
 	def sortby(self, tree, col, descending):
-		"""sort tree contents when a column is clicked on"""
+		"""sort tree contents when a column header is clicked"""
 		data = [(tree.set(k, col), k) for k in tree.get_children('')]
 		data.sort(reverse=descending)
 		[tree.move(k, '', index) for index, (val, k) in enumerate(data)]
 		tree.heading(col, command=lambda col=col: self.sortby(tree, col, int(not descending)))
 
 	def __init__(self, master):
-		mb.set_useragent("MP3 Editor", "1.0", "alexbballa@hotmail.com")
 		def mainQuit(master):
-			master.quit() if askyesno("Exit?", "Do you really want to exit?") == True else False
+			master.quit() if askyesno("Exit?", "Do you really want to quit this program?") == True else False
 
 		def switchModes():
 			'''switch between Edit Mode and View Mode'''
 			self.save.config(state=NORMAL) if self.state.get() == True else self.save.config(state=DISABLED)
 			self.mode.set("Edit Mode") if self.state.get() == True else self.mode.set("View Mode")
 			self.editFile() if self.state.get() == True else self.viewFile()
-
-		def playSong():
-			# setting events
-			END_MUSIC_EVENT = pg.USEREVENT + 0
-			pg.mixer.music.set_endevent(END_MUSIC_EVENT)
-
-			'''play current song selected in Listbox and update elapsed time'''
-			self.current_song_playing.set(self.song['TIT2'][0])
-			# set Pause and Stop buttons to normal state
-			self.play.config(state=DISABLED)
-			self.pause.config(state=NORMAL)
-			self.stop.config(state=NORMAL)
-			
-			for i in range(0, len(self.all_music)):
-				if self.song['TIT2'][0] in self.all_music[i][1]:
-					time = self.all_music[i][-1]
-			
-			self.lyricsText.config(state=NORMAL, cursor="arrow")
-			
-			# display lyrics from USLT tag else display default message
-			lyrics = " -- No lyrics/description to display -- "
-			uslt_found = False
-			for tags in self.song.keys():
-				if "USLT" in tags:
-					uslt_found = True
-					lyrics = self.song[tags]
-
-			# if uslt_found is False:
-			# # web scraping: search for lyrics with "best match" URL -- www.metrolyrics.com
-			# 	if self.song['TCON'][0] != 'Orchestral' and self.song['TCON'] != 'Podcast':
-			# 		if re.search(r'[a-zA-Z0-9\'\&]',self.song['TIT2'][0].lower()):
-			# 			artist, song = [re.sub(r'[^a-zA-Z0-9\'\+\.\(\)\&]',"-",self.song['TPE2'][0].lower()), re.sub(r'[^a-zA-Z0-9\'\+\.\(\)\&]',"-",self.song['TIT2'][0].lower())]
-			# 		else:
-			# 			artist, song = [re.sub(r'\s',"-",self.song['TPE2'][0].lower()), re.sub(r'\s',"-",self.song['TIT2'][0].lower())]
-					
-			# 		if artist == "various-artists":
-			# 			artist = re.sub(r'[^a-zA-Z0-9\'\+\.\(\)\&]',"-",self.song['TPE1'][0].lower())
-			# 		song=song.replace(".","")
-			# 		artist=artist.replace(".","")
-					
-			# 		# search lyrics
-			# 		try:
-			# 			requests_cache.install_cache('lyrics_cache')
-			# 			url = "http://www.metrolyrics.com/{0}-lyrics-{1}.html".format(song, artist)
-			# 			soup = BeautifulSoup(requests.get(url).content, "lxml")
-			# 			lyrics = str()
-			# 			verses = soup.find_all("p", {"class": "verse"})
-			# 			for verse in verses:
-			# 				lyrics += verse.text+"\n\n"
-			# 			self.song['USLT'] = USLT(encoding=3, lang=u'eng', text=lyrics)
-			# 			self.song.save()
-
-			# 		except requests.exceptions.ConnectionError as e:
-			# 			showerror("Connection Error", "%s" % e)
-
-			self.lyricsText.delete("0.0", END)
-			self.lyricsText.insert("0.0", lyrics)
-			self.lyricsText.config(state=DISABLED, cursor="arrow")
-			self.lyricsText.update()
-			
-			# load music file, else return error
-			song_header = self.song.pprint().split("\n")[0].split(", ")
-			freq = "44100 Hz"
-			for x in range(len(song_header)):
-				if "Hz" in song_header[x]:
-					freq = song_header[x]
-					break
-			
-			pg.mixer.pre_init(int(freq[:-3]), -16, 2, 1024)
-			pg.mixer.init()
-			pg.mixer.music.set_volume(0.8)
-			try:
-				pg.mixer.music.load(self.song_path.get())
-				pg.mixer.music.play(1)
-				if pg.mixer.music.get_busy() is True:
-					print (f'{self.song_path.get()} is playing right now')
-			except pg.error:
-				showerror("Playback Error", f"{pg.get_error()}")
-			
-			# reset pause status in player
-			if paused is True:
-				pauseSong()
-			
-			if pg.mixer.music.get_busy() is False:
-				pg.mixer.music.stop()
-				pg.mixer.music.load("")
-				print (f"{self.song_path.get()} has stopped playing")
-				self.lyricsText.config(state=NORMAL, cursor="arrow")	
-			
-		def pauseSong():
-			'''pauses playback of song'''
-			global paused
-			if pg.mixer.music.get_busy() and paused is False:
-				pg.mixer.music.pause()
-				pause_unpause.set("Unpause")
-				paused = True
-			else:
-				pg.mixer.music.unpause()
-				pause_unpause.set("Pause")
-				paused = False
-
-		def stopSong():
-			'''stops the song that is playing'''
-			if pg.mixer.music.get_busy():
-				pg.mixer.music.stop()
-				self.play.config(state=NORMAL)
-				self.stop.config(state=DISABLED)
 
 		'''set initial values to certain parameters used within the program'''
 		if os.name == "nt":
@@ -185,6 +74,8 @@ class EditMetadata(Frame):
 			os.chdir('/home/alex/Music/')
 			self.default = f"{os.getcwd()}/No Image Available.jpg"
 		
+		mb.set_useragent("MP3 Editor", "1.0", "alexbballa@hotmail.com")
+		self.paused = False
 		self.entries = []
 		self.l = ['Song Title','Artist(s)','Album','Album Artist','Genre','Year','Track Number','BPM','Disc Number']
 		self.all_music = []
@@ -202,7 +93,7 @@ class EditMetadata(Frame):
 		self.albumart = StringVar()
 		self.directoryStr = ""
 		self.searchStr = StringVar()
-		self.searchStr.trace("w", lambda var, index, mode: self.update_lb())
+		# self.searchStr.trace("w", lambda var, index, mode: self.update_lb())
 		self.songCntStr = StringVar()
 		self.path = StringVar()
 		self.current_song_selected = StringVar()
@@ -222,6 +113,7 @@ class EditMetadata(Frame):
 		self.menu.add_command(label="Rename File", command=self.renameFile)
 		self.menu.add_command(label="Change File Type", command=functools.partial(self.convertToMP3, 1))
 		self.menu.add_command(label="Change Bitrate", command=functools.partial(self.convertBitrate, 1))
+		self.menu.add_command(label="Update Lyrics", command=functools.partial(lyrics.lyrics, self))
 
 		# creating top Menu bar
 		self.mastermenu = Menu(master)
@@ -290,13 +182,13 @@ class EditMetadata(Frame):
 		self.canvas.grid(row=1, rowspan=3, padx=49, columnspan=3, sticky='NSEW')
 		
 		# create media buttons for media player
-		pause_unpause = StringVar()
-		pause_unpause.set("Pause")
-		self.play = Button(self.player, text="Play", command=playSong, state=DISABLED, width=5)
+		self.pause_unpause = StringVar()
+		self.pause_unpause.set("Pause")
+		self.play = Button(self.player, text="Play", command=functools.partial(playBack.playSong, self), state=DISABLED, width=5)
 		self.play.grid(row=5, column=0, sticky=E+W, pady=7)
-		self.pause = Button(self.player, textvariable=pause_unpause, command=pauseSong, state=DISABLED, width=5)
+		self.pause = Button(self.player, textvariable=self.pause_unpause, command=functools.partial(playBack.pauseSong, self), state=DISABLED, width=5)
 		self.pause.grid(row=5, column=1, sticky=E+W, pady=7)
-		self.stop = Button(self.player, text="Stop", command=stopSong, state=DISABLED, width=5)
+		self.stop = Button(self.player, text="Stop", command=functools.partial(playBack.stopSong, self), state=DISABLED, width=5)
 		self.stop.grid(row=5, column=2, sticky=E+W, pady=7)
 		
 		# display lyrics/description (if any)
@@ -733,7 +625,7 @@ class EditMetadata(Frame):
 		self.canvas.itemconfigure(self.canvas_image, image=self.artImage)
 			
 		size = length = 0
-		paused = False
+		self.paused = False
 		os.chdir(self.dname)
 
 		# clearing the StringVars, if anything is there
@@ -776,10 +668,13 @@ class EditMetadata(Frame):
 					self.songCntStr.set(f"Converting {fn} to MP3...")
 					master.update()
 					fn = f"{fn[:-4]}.mp3"
-					AudioSegment.from_file(fn).export(out_f=fn, bitrate="128k", format="mp3")
+					ff = ffmpy.FFmpeg(inputs={fn: None}, outputs={f"new_{fn}": '-ab 128k'})
+					ff.run()
+					
 					self.songCntStr.set("Performing calculations...")
 					master.update()
 					os.remove(f"{self.dname}\\{fn}")
+					os.rename(f"{self.dname}\\new_{fn}", f"{self.dname}\\{fn}")
 			
 				try:
 					s = MP3(fn)
@@ -1076,14 +971,12 @@ class EditMetadata(Frame):
 					for t in song.keys():
 						temp[t] = song[t]
 				
-					AudioSegment.from_file(songFile).export(f"{songFile[:-4]}.mp3", bitrate="128k", format=args[2].get())
+					ff = ffmpy.FFmpeg(inputs={songFile: None}, outputs={f"new_{songFile}": '-ab 128k'})
+					ff.run()
+					
+					os.remove(f"{self.dname}\\{songTitle}")
+					os.rename(f"{self.dname}\\new_{songTitle}", f"{self.dname}\\{songTitle}")
 
-					# transfer tags from temp back to saved song
-					newSong = MP3(songFile)
-					for t in temp.keys():
-						newSong[t] = temp[t]
-					newSong.save(songFile, v2_version=3)
-				
 					args[0].config(cursor="")
 					showinfo("File Type Conversion", "Conversion is completed!")
 				except CouldntDecodeError as e:
@@ -1165,21 +1058,16 @@ class EditMetadata(Frame):
 			args[0].update()
 
 			if args[3] == 1:
-				if os.name == "nt": f = args[2].get().split("\\")[-1]
-				else: f = args[2].get().split("/")[-1]
-				song = MP3(f)
+				if os.name == "nt": songFile = args[2].get().split("\\")[-1]
+				else: songFile = args[2].get().split("/")[-1]
+				song = MP3(songFile)
 				temp = MP3()
 				for t in song.keys():
 					temp[t] = song[t]
 				
 				# converting to new bitrate
-				AudioSegment.from_file(f).export(f, bitrate=f"{str(args[1].get())}k")
-
-				# transfer tags from temp back to saved song
-				newSong = MP3(f)
-				for t in temp.keys():
-					newSong[t] = temp[t]
-				newSong.save(f, v2_version=3)
+				ff = ffmpy.FFmpeg(inputs={songFile: None}, outputs={f"new_{songFile}": f'-ab {args[1].get()}k'})
+				ff.run()
 			else:
 				# copying metadata to temp MP3 file
 				songsToConvert = bitrateLb.selection()
@@ -1193,14 +1081,14 @@ class EditMetadata(Frame):
 						temp[t] = song[t]
 					
 					# converting the song to new bitrate and saving back in .mp3 file
-					AudioSegment.from_file(songFile).export(songFile, bitrate=f"{str(args[1].get())}k")
-				
-					# transfer tags from temp back to saved song
-					newSong = MP3(songFile)
-					for t in temp.keys():
-						newSong[t] = temp[t]
-					newSong.save(songFile, v2_version=3)
+					ff = ffmpy.FFmpeg(inputs={songFile: None}, outputs={f"new_{songFile}": f'-ab {args[1].get()}k'})
+					ff.run()
+					
 				status.set("Finished converting!!")
+
+			os.remove(f"{self.dname}\\{songFile}")
+			os.rename(f"{self.dname}\\new_{songFile}", f"{self.dname}\\{songFile}")
+
 			time.sleep(1)
 			args[0].config(cursor="")
 			showinfo("Bitrate Conversion","Conversion is completed!", parent=self.bitrate)
