@@ -1,6 +1,6 @@
 # usr/bin/env python3
 
-from mutagen.id3 import TRCK, TCON, TPOS, TALB, TIT2, TPE1, TPE2, TDRC, APIC, USLT, TBPM, ID3NoHeaderError
+from mutagen.id3 import ID3, TRCK, TCON, TPOS, TALB, TIT2, TPE1, TPE2, TDRC, APIC, USLT, TBPM, ID3NoHeaderError
 from mutagen.mp3 import MP3, HeaderNotFoundError
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
@@ -134,6 +134,7 @@ class EditMetadata(Frame):
 		self.mastermenu.add_cascade(label="Metadata", menu=self.metaMenu, underline=0)
 		self.metaMenu.add_command(label="Search Missing Metadata", command=self.searchMetadata)
 		self.metaMenu.add_command(label="Show Songs with Missing Metadata", command=self.showMissingMetadata)
+		self.metaMenu.add_command(label="Show Songs with Corrupted Headers", command=self.showCorruptFiles)
 		# search menu options
 		self.searchMenu = Menu(self.mastermenu, tearoff=0)
 		self.mastermenu.add_cascade(label = "Search", menu=self.searchMenu, underline=0)
@@ -168,7 +169,7 @@ class EditMetadata(Frame):
 		self.edit.grid(row=len(self.l)+1, column=1, sticky=E+W)
 		self.save = Button(metadata, text="Save Metadata", width=12, state=DISABLED, command=self.saveFile)
 		self.save.grid(row=len(self.l)+1, column=2, sticky=E+W, pady=11)
-		self.getAlbumArt = Button(metadata, text="Add Album Art", state=DISABLED, width=12, command=functools.partial(albumArt.addArt, (self, master)))
+		self.getAlbumArt = Button(metadata, text="Add Album Art", state=DISABLED, width=12, command=functools.partial(albumArt.addArt, self))
 		self.getAlbumArt.grid(row=len(self.l)+1, column=4, sticky='EW', pady=11)
 		
 		# creating empty Canvas for media player (album art place holder)
@@ -247,8 +248,9 @@ class EditMetadata(Frame):
 		'''
 		Downloads album art for specific album and artist
 		'''
-		albumArt.downloadArt(self, self.song)
+		albumArt.downloadArt(self)
 		albumArt.addArt(self)
+		self.getMusic()
 
 	def printTracklist(self, event):
 		'''
@@ -296,14 +298,18 @@ class EditMetadata(Frame):
 		'''
 		Creates a new header for the MP3 file and necessary metadata
 		'''
-		self.song = ID3(song_path)
-		self.newFile = MP3()
-		
-		# copy necessary contents of old .mp3 file to new .mp3 file
-		for t in self.song.keys():
-			if t in self.tags:
-				self.newFile[t] = self.song[t]
-		return self.newFile
+		self.corruptMP3 = []
+		try:
+			self.song = ID3(song_path)
+			self.newFile = MP3()
+			
+			# copy necessary contents of old .mp3 file to new .mp3 file
+			for t in self.song.keys():
+				if t in self.tags:
+					self.newFile[t] = self.song[t]
+			return self.newFile
+		except:
+			self.corruptMP3.append(song_path)
 
 	def onselect(self, e):
 		'''
@@ -324,17 +330,17 @@ class EditMetadata(Frame):
 		if os.name == "nt":
 			self.song_path.set(f"{os.getcwd()}\\{self.value['text']}")
 
-		self.menu.entryconfig(0, state=DISABLED) if albumArt.isAlbumArtInFile(self.song_path.get()) == True else \
-			self.menu.entryconfig(0, state=NORMAL)
-
 		# read .mp3 file
 		try:
 			self.song = MP3(self.song_path.get()) # dictionary
 			
 			# "removing" unnecessary tags if header is present
 			self.remove = []
+			apicFound = [0 for key in self.song.keys() if "APIC" in key]
+			usltFound = [0 for key in self.song.keys() if "USLT" in key]
+			
 			for t in self.song.keys():
-				if "APIC" in t or "USLT" in t: continue
+				if (0 in apicFound or 0 in usltFound) and "APIC" not in t and "USLT" not in t: continue
 				if t not in self.tags: self.remove.append(t)
 
 			for tag in self.remove:
@@ -345,6 +351,12 @@ class EditMetadata(Frame):
 			self.mode.set("View Mode")
 			self.save.config(state=DISABLED)
 
+			# determine if album art can be extracted from the MP3
+			if albumArt.isAlbumArtInFile(self.song_path.get()) == False and 0 in [key for key in self.song.keys() if "APIC" in key]:
+				self.menu.entryconfig("Extract Album Art", state=NORMAL)
+			else:
+				self.menu.entryconfig("Extract Album Art", state=DISABLED)
+		
 			# print whatever contents are in the tags in the .mp3 file
 			for k in self.song.keys():
 				if "APIC" in k or "USLT" in k: continue
@@ -359,7 +371,7 @@ class EditMetadata(Frame):
 					break
 				else:
 					self.getAlbumArt.config(text="Add Album Art", state=NORMAL, command=functools.partial(
-						albumArt.addArt_Single, (self, master)))
+						albumArt.addArt, self))
 					self.getAlbumArt.update()	
 			
 			# get and display song lyrics/podcast description from metadata, if any
@@ -654,6 +666,7 @@ class EditMetadata(Frame):
 
 		# populate files in list, get size of all files in directory
 		self.missingMetadata = []
+		self.not128kBitrate = []
 		self.all_music.clear()
 		
 		music_formats = ['mp3','m4a','wav']
@@ -667,15 +680,13 @@ class EditMetadata(Frame):
 				if "mp3" not in fn[-3:]:
 					self.songCntStr.set(f"Converting {fn} to MP3...")
 					master.update()
-					fn = f"{fn[:-4]}.mp3"
-					ff = ffmpy.FFmpeg(inputs={fn: None}, outputs={f"new_{fn}": '-ab 128k'})
+					new_fn = f"{fn[:-4]}.mp3"
+					ff = ffmpy.FFmpeg(inputs={fn: None}, outputs={f"new_{new_fn}": '-y -ac 2 -ar 44100 -ab 128k'})
 					ff.run()
 					
 					self.songCntStr.set("Performing calculations...")
 					master.update()
-					os.remove(f"{self.dname}\\{fn}")
-					os.rename(f"{self.dname}\\new_{fn}", f"{self.dname}\\{fn}")
-			
+					os.replace(f"new_{new_fn}", fn)
 				try:
 					s = MP3(fn)
 					self.all_music.append([fn, s['TIT2'][0], s['TPE1'][0], s['TALB'][0], s['TCON'][0], ('{0:02}:{1:02}:{2:02}').format(
@@ -693,6 +704,10 @@ class EditMetadata(Frame):
 						showerror("WMA Conversion Attempt","Aborting conversion! Possible DRM protection.")
 					else:
 						self.recreateMP3File(fn)
+
+			s = MP3(fn)
+			if int(s.info.bitrate / 1000) != 128:
+				self.not128kBitrate.append(fn)
 
 		# get size of entire directory and convert total time of all songs
 		convertedSize, convertedTime = self.conversion(size, length)
@@ -740,9 +755,15 @@ class EditMetadata(Frame):
 			self.getMusic()
 			self.mastermenu.entryconfig("Directory", state=NORMAL)
 			self.mastermenu.entryconfig("Search", state=NORMAL)
+			if len(self.missingMetadata) > 0 or len(self.corruptMP3) > 0:
+				self.mastermenu.entryconfig("Metadata", state=NORMAL)
+				if len(self.missingMetadata) > 0:
+					self.metaMenu.entryconfig(1, state=NORMAL)
+				if len(self.corruptMP3) > 0:
+					self.metaMenu.entryconfig(2, state=NORMAL)
 
 	def searchMetadata(self):
-		'''
+		'''extr
 		Search for missing metadata via the Internet - using MusicBrainz API
 		'''
 		metaWin = Toplevel()
@@ -752,7 +773,7 @@ class EditMetadata(Frame):
 	
 	def showMissingMetadata(self):
 		'''
-		Display all files that having missing metadata information
+		Display all files that have missing metadata information
 		'''
 		missingMetaWin = Toplevel()
 		missingMetaWin.title("Songs with Missing Metadata")
@@ -760,13 +781,31 @@ class EditMetadata(Frame):
 		missingMetaWin.geometry(f"{pos[0]}x{pos[1]}+{pos[2]}+{pos[3]}")
 		missingMetaWin.resizable(False, False)
 		missingMetaWin.config(cursor="arrow")
-		missingText=Text(missingMetaWin, width=missingMDWidth, height=missingMDHeight)
+		missingText=Text(missingMetaWin, width=default.missingMDWidth, height=default.missingMDHeight)
 		[missingText.insert(END, f"{f}\n") if len(self.missingMetadata) > 0 else next for f in self.missingMetadata]
 		missingText.insert(END, "No files with missing metadata") if len(self.missingMetadata) == 0 else next
 		missingText.insert(END, f"\nTotal: {len(self.missingMetadata)} files")
 		missingText.config(state=DISABLED, cursor="arrow")
 		missingText.focus()
 		missingText.grid()
+
+	def showCorruptFiles(self):
+		'''
+		Display all files that have corrupted headers
+		'''
+		corruptFilesWin = Toplevel()
+		corruptFilesWin.title("Songs with Corrupted Headers")
+		pos = windows.centerWindow(corruptFilesWin,750,245)
+		corruptFilesWin.geometry(f"{pos[0]}x{pos[1]}+{pos[2]}+{pos[3]}")
+		corruptFilesWin.resizable(False, False)
+		corruptFilesWin.config(cursor="arrow")
+		corruptMP3=Text(corruptFilesWin, width=default.corruptMP3Width, height=default.corruptMP3Height)
+		[corruptMP3.insert(END, f"{f}\n") if len(self.corruptMP3) > 0 else next for f in self.corruptMP3]
+		corruptMP3.insert(END, "No files with missing metadata") if len(self.corruptMP3) == 0 else next
+		corruptMP3.insert(END, f"\nTotal: {len(self.corruptMP3)} files")
+		corruptMP3.config(state=DISABLED, cursor="arrow")
+		corruptMP3.focus()
+		corruptMP3.grid()
 
 	def search(self, args):
 		'''searching for the criteria entered by user'''
@@ -792,6 +831,10 @@ class EditMetadata(Frame):
 			'''finding and building the tree based on search criteria'''
 			# args[0] = title, args[1] = searchItems, args[2] = criteria
 			# clear() if args[2] != '' else next
+			if len(self.tree.get_children()) > 0:
+				for child in self.tree.get_children():
+					self.tree.delete(child)
+
 			self.searchWin.config(cursor="watch")
 			self.searchWin.update()
 
@@ -1017,7 +1060,7 @@ class EditMetadata(Frame):
 					try:
 						convertingTv.insert("", END, values=(f, f[-4]))
 					except HeaderNotFoundError:
-						self.recreateMP3File(f)
+						# self.recreateMP3File(f)
 						convertingTv.insert("", END, values=(f, f[-4]))
 			convertBtn = Button(self.convert, text="Convert", width=8, command=functools.partial(convert, (self.convert, convertingTv, convert2type, option)))
 			convertBtn.grid(row=4, column=2)
@@ -1068,6 +1111,8 @@ class EditMetadata(Frame):
 				# converting to new bitrate
 				ff = ffmpy.FFmpeg(inputs={songFile: None}, outputs={f"new_{songFile}": f'-ab {args[1].get()}k'})
 				ff.run()
+				os.replace(f"{self.dname}\\new_{songFile}", f"{self.dname}\\{songFile}")
+
 			else:
 				# copying metadata to temp MP3 file
 				songsToConvert = bitrateLb.selection()
@@ -1081,14 +1126,12 @@ class EditMetadata(Frame):
 						temp[t] = song[t]
 					
 					# converting the song to new bitrate and saving back in .mp3 file
-					ff = ffmpy.FFmpeg(inputs={songFile: None}, outputs={f"new_{songFile}": f'-ab {args[1].get()}k'})
+					ff = ffmpy.FFmpeg(inputs={songName: None}, outputs={f"new_{songName}": f'-ab {args[1].get()}k'})
 					ff.run()
-					
+					os.replace(f"{self.dname}\\new_{songName}", f"{self.dname}\\{songName}")
+		
 				status.set("Finished converting!!")
-
-			os.remove(f"{self.dname}\\{songFile}")
-			os.rename(f"{self.dname}\\new_{songFile}", f"{self.dname}\\{songFile}")
-
+			
 			time.sleep(1)
 			args[0].config(cursor="")
 			showinfo("Bitrate Conversion","Conversion is completed!", parent=self.bitrate)
@@ -1151,14 +1194,13 @@ class EditMetadata(Frame):
 			bitrateLb.grid(row=3, sticky=N+S)
 			vsb.grid(row=3, column=6, sticky=N+S+W)
 		
-			for f in os.listdir():
-				if f.endswith(".mp3"):
-					try:
-						bitrateLb.insert("", END, values=(f, round(MP3(f).info.bitrate/1000),2))
-					except HeaderNotFoundError:
-						self.recreateMP3File(f)
-						bitrateLb.insert("", END, values=(f, round(MP3(f).info.bitrate/1000),2))
-
+			for f in self.not128kBitrate:
+				try:
+					bitrateLb.insert("", END, values=(f, round(MP3(f).info.bitrate/1000),2))
+				except HeaderNotFoundError:
+					# self.recreateMP3File(f)
+					# bitrateLb.insert("", END, values=(f, round(MP3(f).info.bitrate/1000),2))
+					continue
 		# create radio buttons
 		for text, rate in BITRATES:
 			radioBtn = Radiobutton(self.bitrate, text=text, variable=bitrate, value=rate)
