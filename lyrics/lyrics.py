@@ -10,6 +10,7 @@ import functools
 
 import windows.customWindowSize as windowSize
 import utils.defaults as defaults
+import re
 
 def lyrics(self):
 	'''
@@ -31,7 +32,7 @@ def lyrics(self):
 	
 	if USLT_FOUND is False and self.song['TCON'][0] is not "Podcast":
 		for url in URLS:
-			completeUrl = url.format(search_song_title, search_artist)
+			completeUrl = url.format(re.sub('[^A-Za-z0-9\-]+', '', search_song_title), re.sub('[^A-Za-z0-9\-]+', '', search_artist))
 
 			try:
 				requests_cache.install_cache('lyrics_cache')
@@ -111,7 +112,7 @@ def saveFile(args):
 	
 	self.song['USLT'] = USLT(encoding=3, lang=u'eng', text=textbox.get(1.0, 'end'))
 	self.song.save(self.song_path.get(), v2_version=3)
-	showinfo("Song Description","Description has been saved!") if self.song['TCON'] == "Podcast" else next
+	showinfo("Song Description","Description has been saved!") if self.song['TCON'] == "Podcast" else showinfo("Song Lyrics", "Lyrics have been saved!")
 	closeWindow(self)
 
 def closeWindow(self):

@@ -298,7 +298,6 @@ class EditMetadata(Frame):
 		'''
 		Creates a new header for the MP3 file and necessary metadata
 		'''
-		self.corruptMP3 = []
 		try:
 			self.song = ID3(song_path)
 			self.newFile = MP3()
@@ -336,12 +335,14 @@ class EditMetadata(Frame):
 			
 			# "removing" unnecessary tags if header is present
 			self.remove = []
-			apicFound = [0 for key in self.song.keys() if "APIC" in key]
-			usltFound = [0 for key in self.song.keys() if "USLT" in key]
+			apicFound = [key for key in self.song.keys() if "APIC" in key]
+			usltFound = [key for key in self.song.keys() if "USLT" in key]
 			
 			for t in self.song.keys():
-				if (0 in apicFound or 0 in usltFound) and "APIC" not in t and "USLT" not in t: continue
-				if t not in self.tags: self.remove.append(t)
+				if t in apicFound or t in usltFound:
+					continue
+				if t not in self.tags:
+					self.remove.append(t)
 
 			for tag in self.remove:
 				self.song.pop(tag)
@@ -666,44 +667,42 @@ class EditMetadata(Frame):
 
 		# populate files in list, get size of all files in directory
 		self.missingMetadata = []
+		self.corruptMP3 = []
 		self.not128kBitrate = []
 		self.all_music.clear()
 		
 		music_formats = ['mp3','m4a','wav']
+		music = [fn for fn in os.listdir() if fn[-3:] in music_formats]
+			
+		for fn in music:
+			if "mp3" not in fn:
+				self.songCntStr.set(f"Converting {fn} to MP3...")
+				master.update()
+				new_fn = f"{fn[:-4]}.mp3"
+				ff = ffmpy.FFmpeg(inputs={fn: None}, outputs={f"new_{new_fn}": '-y -ac 2 -ar 44100 -ab 128k'})
+				ff.run()
+				
+				self.songCntStr.set("Performing calculations...")
+				master.update()
+				os.replace(f"new_{new_fn}", fn)
 
-		for fn in os.listdir():
-			# skips directories/folders
-			if "." not in fn:
-				continue
-
-			if fn[-3:] in music_formats:
-				if "mp3" not in fn[-3:]:
-					self.songCntStr.set(f"Converting {fn} to MP3...")
-					master.update()
-					new_fn = f"{fn[:-4]}.mp3"
-					ff = ffmpy.FFmpeg(inputs={fn: None}, outputs={f"new_{new_fn}": '-y -ac 2 -ar 44100 -ab 128k'})
-					ff.run()
-					
-					self.songCntStr.set("Performing calculations...")
-					master.update()
-					os.replace(f"new_{new_fn}", fn)
-				try:
-					s = MP3(fn)
-					self.all_music.append([fn, s['TIT2'][0], s['TPE1'][0], s['TALB'][0], s['TCON'][0], ('{0:02}:{1:02}:{2:02}').format(
-						int(s.info.length % 86400) // 3600, int(s.info.length % 3600) // 60, int(s.info.length % 60)), int(s.info.bitrate / 1000)])
-					size += os.stat(fn).st_size
-					length += s.info.length
-				except KeyError as e:
-					self.missingMetadata.append(fn)
-					self.all_music.append([fn, fn, " ", " ", " ", ('{0:02}:{1:02}:{2:02}').format(
-						int(s.info.length % 86400) // 3600, int(s.info.length % 3600) // 60, int(s.info.length % 60)), int(s.info.bitrate / 1000)])
-					size += os.stat(fn).st_size
-					length += s.info.length
-				except HeaderNotFoundError as e:
-					if fn[-4:] == ".wma":
-						showerror("WMA Conversion Attempt","Aborting conversion! Possible DRM protection.")
-					else:
-						self.recreateMP3File(fn)
+			try:
+				s = MP3(fn)
+				self.all_music.append([fn, s['TIT2'][0], s['TPE1'][0], s['TALB'][0], s['TCON'][0], ('{0:02}:{1:02}:{2:02}').format(
+					int(s.info.length % 86400) // 3600, int(s.info.length % 3600) // 60, int(s.info.length % 60)), int(s.info.bitrate / 1000)])
+				size += os.stat(fn).st_size
+				length += s.info.length
+			except KeyError as e:
+				self.missingMetadata.append(fn)
+				self.all_music.append([fn, fn, " ", " ", " ", ('{0:02}:{1:02}:{2:02}').format(
+					int(s.info.length % 86400) // 3600, int(s.info.length % 3600) // 60, int(s.info.length % 60)), int(s.info.bitrate / 1000)])
+				size += os.stat(fn).st_size
+				length += s.info.length
+			except HeaderNotFoundError as e:
+				if fn[-4:] == ".wma":
+					showerror("WMA Conversion Attempt","Aborting conversion! Possible DRM protection.")
+				else:
+					self.recreateMP3File(fn)
 
 			s = MP3(fn)
 			if int(s.info.bitrate / 1000) != 128:

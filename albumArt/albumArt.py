@@ -25,6 +25,7 @@ def addArt(self):
     '''
     if os.path.exists(f'{IMAGE_PATH}\\temp'):
         os.chdir(f'{IMAGE_PATH}\\temp')
+    # elif os.path.exists(f'{IMAGE_PATH}'):
         
         if len(os.listdir()) > 1:
             showinfo("More Than One Image Downloaded", "More than one image was downloaded for the selected album. Please select your preferred album cover to be saved.")
