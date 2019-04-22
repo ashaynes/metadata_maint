@@ -62,7 +62,7 @@ class EditMetadata(Frame):
 
 		def switchModes():
 			'''switch between Edit Mode and View Mode'''
-			self.save.config(state=NORMAL) if self.state.get() == True else self.save.config(state=DISABLED)
+			self.save.config(state="normal") if self.state.get() == True else self.save.config(state="disabled")
 			self.mode.set("Edit Mode") if self.state.get() == True else self.mode.set("View Mode")
 			self.editFile() if self.state.get() == True else self.viewFile()
 
@@ -353,7 +353,7 @@ class EditMetadata(Frame):
 			self.save.config(state=DISABLED)
 
 			# determine if album art can be extracted from the MP3
-			if albumArt.isAlbumArtInFile(self.song_path.get()) == False and 0 in [key for key in self.song.keys() if "APIC" in key]:
+			if albumArt.isAlbumArtInFile(self.song_path.get()) == False and 0 in [key.find("APIC") for key in self.song.keys()]:
 				self.menu.entryconfig("Extract Album Art", state=NORMAL)
 			else:
 				self.menu.entryconfig("Extract Album Art", state=DISABLED)
@@ -704,9 +704,9 @@ class EditMetadata(Frame):
 				else:
 					self.recreateMP3File(fn)
 
-			s = MP3(fn)
-			if int(s.info.bitrate / 1000) != 128:
-				self.not128kBitrate.append(fn)
+					# s = MP3(fn)
+					# if int(s.info.bitrate / 1000) != 128:
+					# 	self.not128kBitrate.append(fn)
 
 		# get size of entire directory and convert total time of all songs
 		convertedSize, convertedTime = self.conversion(size, length)
@@ -774,7 +774,7 @@ class EditMetadata(Frame):
 		'''
 		Display all files that have missing metadata information
 		'''
-		missingMetaWin = Toplevel()
+		missingMetaWin = Toplevel(master=master)
 		missingMetaWin.title("Songs with Missing Metadata")
 		pos = windows.centerWindow(missingMetaWin,750,245)
 		missingMetaWin.geometry(f"{pos[0]}x{pos[1]}+{pos[2]}+{pos[3]}")
@@ -792,7 +792,7 @@ class EditMetadata(Frame):
 		'''
 		Display all files that have corrupted headers
 		'''
-		corruptFilesWin = Toplevel()
+		corruptFilesWin = Toplevel(master=master)
 		corruptFilesWin.title("Songs with Corrupted Headers")
 		pos = windows.centerWindow(corruptFilesWin,750,245)
 		corruptFilesWin.geometry(f"{pos[0]}x{pos[1]}+{pos[2]}+{pos[3]}")
@@ -800,7 +800,7 @@ class EditMetadata(Frame):
 		corruptFilesWin.config(cursor="arrow")
 		corruptMP3=Text(corruptFilesWin, width=default.corruptMP3Width, height=default.corruptMP3Height)
 		[corruptMP3.insert(END, f"{f}\n") if len(self.corruptMP3) > 0 else next for f in self.corruptMP3]
-		corruptMP3.insert(END, "No files with missing metadata") if len(self.corruptMP3) == 0 else next
+		corruptMP3.insert(END, "No files with corrupted headers") if len(self.corruptMP3) == 0 else next
 		corruptMP3.insert(END, f"\nTotal: {len(self.corruptMP3)} files")
 		corruptMP3.config(state=DISABLED, cursor="arrow")
 		corruptMP3.focus()

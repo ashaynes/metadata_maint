@@ -11,16 +11,12 @@ def playSong(self):
 	# pg.mixer.music.set_endevent(END_MUSIC_EVENT)
 	paused = False
 
-	'''play current song selected in Listbox and update elapsed time'''
+	'''play current song selected in Listbox'''
 	self.current_song_playing.set(self.song['TIT2'][0])
 	# set Pause and Stop buttons to normal state
 	self.play.config(state=tkinter.DISABLED)
 	self.pause.config(state=tkinter.NORMAL)
 	self.stop.config(state=tkinter.NORMAL)
-	
-	for i in range(0, len(self.all_music)):
-		if self.song['TIT2'][0] in self.all_music[i][1]:
-			time = self.all_music[i][-1]
 	
 	self.lyricsText.config(state=tkinter.NORMAL, cursor="arrow")
 	

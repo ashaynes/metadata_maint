@@ -3,7 +3,7 @@ import inspect
 from PIL import Image, ImageTk
 from mutagen.id3 import ID3, TRCK, TCON, TPOS, TALB, TIT2, TPE1, TPE2, TDRC, APIC, COMM, USLT, TBPM, ID3NoHeaderError
 from mutagen.mp3 import MP3, HeaderNotFoundError
-from tkinter.messagebox import *
+from tkinter.messagebox import showinfo
 import musicbrainzngs as mb
 from collections import defaultdict
 from unidecode import unidecode
@@ -32,7 +32,7 @@ def addArt(self):
         elif len(os.listdir()) == 1:
             # rename image / remove "_[count]" from file name and move to main folder, create APIC and add to MP3
             f = os.listdir()[0]
-            f_rename = re.sub('_\d+', '', f)
+            f_rename = re.sub(r'_\d+', '', f)
             
             os.replace(f, f"{IMAGE_PATH}\\{f_rename}")
             
@@ -116,47 +116,43 @@ def downloadArt(self):
     # search for releases (albums)
     api_releases = mb.search_release_groups(self.song['TALB'][0], artist=self.song['TPE2'][0])
 
-    # check if 'artistid' is present in COMM tag
-    if 'COMM::XXX' in self.song.keys():
-        artistid = self.song['COMM::XXX']
-    else:
-        artists = defaultdict(list)
-        albums = defaultdict(list)
-        for r in api_releases['release-group-list']:
-            for a in r['artist-credit']:
-                if type(a) is dict and 'name' in a['artist'].keys() and 'id' in a['artist'].keys():
-                    if a['artist']['name'] == self.song['TPE2'][0]:
-                        artists['artistname'] = a['artist']['name']
-                        artists['artistids'].append(a['artist']['id'])
-                        print(f"\n{a['artist']['id']} -> {a['artist']['name']}")
+    artists = defaultdict(list)
+    albums = defaultdict(list)
+    for r in api_releases['release-group-list']:
+        for a in r['artist-credit']:
+            if type(a) is dict and 'name' in a['artist'].keys() and 'id' in a['artist'].keys():
+                if a['artist']['name'] == self.song['TPE2'][0]:
+                    artists['artistname'] = a['artist']['name']
+                    artists['artistids'].append(a['artist']['id'])
+                    print(f"\n{a['artist']['id']} -> {a['artist']['name']}")
 
-                        if 'release-list' in r.keys():
-                            for release in r['release-list']:
-                                if 'title' in release.keys() and 'id' in release.keys():
-                                    # replace all special unicode characters in title
-                                    release_title = unidecode(release['title'])
-                                    
-                                    if release_title == self.song['TALB'][0]:
-                                        albums['releaseids'].append(release['id'])
-                                        albums['title'] = release_title
-                                        artists['albums'] = albums
-                                        print(f"--> {release['id']} :: {release_title}")
+                    if 'release-list' in r.keys():
+                        for release in r['release-list']:
+                            if 'title' in release.keys() and 'id' in release.keys():
+                                # replace all special unicode characters in title
+                                release_title = unidecode(release['title'])
+                                
+                                if release_title == self.song['TALB'][0]:
+                                    albums['releaseids'].append(release['id'])
+                                    albums['title'] = release_title
+                                    artists['albums'] = albums
+                                    print(f"--> {release['id']} :: {release_title}")
 
-        # try to get album image for each releaseid [byte-array]. store temporarily until user selects which one to save
-        count = 0
-        for releaseid in albums['releaseids']:
-            self.songCntStr.set(f"Attempting to download album cover(s) for \'{albums['title']}\'...")
-            try:
-                i = mb.get_image_front(releaseid, 250)
-            except mb.ResponseError as e:
-                self.songCntStr.set(f"Error downloading cover art: {e}")
-                count += 1
-            else:
-                with open(f"temp\\{self.song['TALB'][0]} ({self.song['TPE2'][0]})_{count}.jpg", "wb") as image:
-                    image.write(i)
-    
-                self.songCntStr.set(f"Downloaded album cover \'{self.song['TALB'][0]} ({self.song['TPE2'][0]})_{count}.jpg\'...")
-                count += 1
+    # try to get album image for each releaseid [byte-array]. store temporarily until user selects which one to save
+    count = 0
+    for releaseid in albums['releaseids']:
+        self.songCntStr.set(f"Attempting to download album cover(s) for \'{albums['title']}\'...")
+        try:
+            i = mb.get_image_front(releaseid, 250)
+        except mb.ResponseError as e:
+            self.songCntStr.set(f"Error downloading cover art: {e}")
+            count += 1
+        else:
+            with open(f"temp\\{self.song['TALB'][0]} ({self.song['TPE2'][0]})_{count}.jpg", "wb") as image:
+                image.write(i)
+
+            self.songCntStr.set(f"Downloaded album cover \'{self.song['TALB'][0]} ({self.song['TPE2'][0]})_{count}.jpg\'...")
+            count += 1
 
         # create a new window that would display each album cover that was downloaded for the user to choose which
         # one that want to save to the MP3 and write to the database
@@ -170,24 +166,16 @@ def extractArt(self):
     os.chdir("\\".join(file.split("\\")[:-1]))
 
     song = MP3(file)
-    for key in song.keys():
-        if "APIC" in key:
-            apic_data = song[key].data
-            with open(f"{IMAGE_PATH}{song['TALB'][0].replace(': ',' - ')} ({song['TPE2']}).jpg", "wb") as image:
-                image.write(apic_data)
-                self.songCntStr.set(f"{IMAGE_PATH}{song['TALB'][0].replace(': ',' - ')} ({song['TPE2']}).jpg was created and saved to file!")
-            
-            resizeArt(f"{IMAGE_PATH}{song['TALB'][0].replace(': ',' - ')} ({song['TPE2']}).jpg")
-            showinfo("Album Art Extracted", f"{IMAGE_PATH}{song['TALB'][0].replace(': ',' - ')} ({song['TPE2']}).jpg was created and saved to file!")
-            break
-
-# Images are loaded all over the place! Consolidate into a method call, passing the object and the file name (if applicable)
-#  --> Lines: 285, 525, 748
-# def load(obj):
-#     s = obj
-#     s.albumart = ImageTk.PhotoImage(Image.open(s.default).resize((194,194), Image.ANTIALIAS))
-
-#     print("Image can \'open\'")
+    apic_key = [key for key in song.keys() if "APIC" in key][0]
+    apic_data = song[apic_key].data
+    new_image_name = f"{song['TALB'][0].replace(': ',' - ')} ({song['TPE2'][0]}).jpg"
+    
+    with open(f"{IMAGE_PATH}{new_image_name}", "wb") as image:
+        image.write(apic_data)
+        self.songCntStr.set(f"{IMAGE_PATH}{new_image_name} was created and saved to file!")
+    
+    resizeArt(f"{IMAGE_PATH}{new_image_name}")
+    showinfo("Album Art Extracted", f"{IMAGE_PATH}{new_image_name} was created and saved to file!")
 
 def removeArt(info):
     '''

@@ -32,7 +32,7 @@ def lyrics(self):
 	
 	if USLT_FOUND is False and self.song['TCON'][0] is not "Podcast":
 		for url in URLS:
-			completeUrl = url.format(re.sub('[^A-Za-z0-9\-]+', '', search_song_title), re.sub('[^A-Za-z0-9\-]+', '', search_artist))
+			completeUrl = url.format(re.sub(r'[^A-Za-z0-9\-]+', '', search_song_title), re.sub(r'[^A-Za-z0-9\-]+', '', search_artist))
 
 			try:
 				requests_cache.install_cache('lyrics_cache')
@@ -66,6 +66,8 @@ def lyrics(self):
 	tk.Label(self.saveLDWin, text=f"Disc: {disc_number}", font="Arial 10 italic", justify=tk.CENTER).grid(row=4, columnspan=3, sticky=tk.E+tk.W)
 
 	textbox = tk.Text(self.saveLDWin, font='Times 10', width=65, wrap=tk.WORD)
+	textbox.tag_configure("center", justify='center')
+	textbox.tag_add("center", 1.0, "end")
 	textbox.grid(row=6, columnspan=3, pady=10)
 	textbox.insert("end", lyrics.rstrip())
 	textbox.config(state=tk.DISABLED, cursor="arrow")
