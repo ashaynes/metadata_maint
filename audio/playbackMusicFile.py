@@ -37,11 +37,9 @@ def playSong(self):
 	for x in range(len(song_header)):
 		if "Hz" in song_header[x]:
 			freq = song_header[x]
+			print (freq)
 			break
 	
-	pg.mixer.pre_init(int(freq[:-3]), -16, 2, 1024)
-	pg.mixer.init()
-	pg.mixer.music.set_volume(0.8)
 	try:
 		pg.mixer.music.load(self.song_path.get())
 		pg.mixer.music.play(1)

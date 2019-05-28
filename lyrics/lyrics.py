@@ -7,6 +7,7 @@ import requests
 import requests_cache
 from tkinter.messagebox import *
 import functools
+from unidecode import unidecode
 
 import windows.customWindowSize as windowSize
 import utils.defaults as defaults
@@ -25,8 +26,8 @@ def lyrics(self):
 			lyrics = str(self.song[tags])
 
 	if self.song['TCON'][0] != "Podcast":
-		search_artist = self.song['TPE2'][0].replace(" ","-").lower()
-		search_song_title = self.song['TIT2'][0].replace(" ","-").lower()
+		search_artist = unidecode(self.song['TPE2'][0].replace(" ","-").lower())
+		search_song_title = unidecode(self.song['TIT2'][0].replace(" ","-").lower())
 
 	artist = self.song['TPE2'][0] if 'TPE2' in self.song.keys() else "No Artist"
 	

@@ -377,6 +377,7 @@ class EditMetadata(Frame):
 			
 			# get and display song lyrics/podcast description from metadata, if any
 			self.lyricsText.delete("0.0", END)
+			self.lyricsText.update()
 			if 'TCON' in self.song.keys():
 				usltInKeys = [tag for tag in self.song.keys() if "USLT" in tag]
 				if len(usltInKeys) == 1:
