@@ -36,10 +36,13 @@ def playSong(self):
 	freq = "44100 Hz"
 	for x in range(len(song_header)):
 		if "Hz" in song_header[x]:
-			freq = song_header[x]
+			freq = song_header[x].split(" ")[0]
 			print (freq)
 			break
 	
+	pg.mixer.pre_init(int(freq),-16,2,4096)
+	pg.mixer.init()
+		
 	try:
 		pg.mixer.music.load(self.song_path.get())
 		pg.mixer.music.play(1)

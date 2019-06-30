@@ -33,7 +33,6 @@ def addArt(self):
             # rename image / remove "_[count]" from file name and move to main folder, create APIC and add to MP3
             f = os.listdir()[0]
             f_rename = re.sub(r'_\d+', '', f)
-            
             os.replace(f, f"{IMAGE_PATH}\\{f_rename}")
             
             self.songCntStr.set(f"Adding album art to '{self.song['TIT2'][0]}'...")
