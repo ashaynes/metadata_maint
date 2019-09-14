@@ -31,6 +31,7 @@ import io
 import musicbrainzngs as mb
 
 import audio.playbackMusicFile as playBack
+import utils as utils
 import utils.defaults as default
 import albumArt.albumArt as albumArt
 import lyrics.lyrics as lyrics
@@ -69,7 +70,7 @@ class EditMetadata(Frame):
 		'''set initial values to certain parameters used within the program'''
 		if os.name == "nt":
 			os.chdir("C:\\Code\\Music Metadata Editor\\")
-			self.default = f"{os.getcwd()}\\No Image Available.jpg"
+			self.default = f"{os.getcwd()}\\media\\images\\No Image Available.jpg"
 		if os.name == "posix":
 			os.chdir('/home/alex/Music/')
 			self.default = f"{os.getcwd()}/No Image Available.jpg"
@@ -100,7 +101,7 @@ class EditMetadata(Frame):
 		self.current_song_playing = StringVar()
 		
 		self.musicLb_columns = ['Title', 'Artist(s)', 'Album', 'Genre', 'Time', 'Bitrate']
-		self.tags = ['TIT2', 'TPE1', 'TALB', 'TPE2', 'TCON', 'TDRC', 'TRCK', 'TBPM', 'TPOS', 'APIC', 'USLT']
+		self.tags = ['TIT2', 'TPE1', 'TALB', 'TPE2', 'TCON', 'TDRC', 'TRCK', 'TBPM', 'TPOS', 'APIC', 'USLT', 'SYLT']
 		self.cats = [self.title, self.artist, self.album, self.performer, self.genre, self.date, self.tracknumber, self.bpm, self.discnumber, self.albumart]
 		
 		# creating popup Menu for Listbox
@@ -113,7 +114,7 @@ class EditMetadata(Frame):
 		self.menu.add_command(label="Rename File", command=self.renameFile)
 		self.menu.add_command(label="Change File Type", command=functools.partial(self.convertToMP3, 1))
 		self.menu.add_command(label="Change Bitrate", command=functools.partial(self.convertBitrate, 1))
-		self.menu.add_command(label="Update Lyrics", command=functools.partial(lyrics.lyrics, self))
+		self.menu.add_command(label="Update Lyrics/Description", command=functools.partial(lyrics.lyrics, self))
 
 		# creating top Menu bar
 		self.mastermenu = Menu(master)
@@ -391,7 +392,7 @@ class EditMetadata(Frame):
 					
 			# determine when "Search Missing Metadata" option is available for selection in Metadata menu
 			# should only be available when there is at least one metadata field (self.cats) that is empty (legit)
-			tempList=self.tags[:-2]
+			tempList=self.tags[:-3]
 			self.metaMenu.entryconfig("Search Missing Metadata", state=NORMAL) if any(len(self.cats[self.tags.index(t)].get())==0 for t in tempList) \
 				else self.metaMenu.entryconfig("Search Missing Metadata", state=DISABLED)
 			
@@ -651,13 +652,13 @@ class EditMetadata(Frame):
 			self.songCntStr.set("Editing recently downloaded \'Sex With Emily\' podcasts...")
 			master.config(cursor="watch")
 			master.update()
-			fix_SexWithEmilyPodcasts.fixPodcasts()
+			utils.fix_SexWithEmilyPodcasts.fixPodcasts()
 		
 		if "Sword and Scale" in os.getcwd():
 			self.songCntStr.set("Editing recently downloaded \'Sword and Scale\' podcasts...")
 			master.config(cursor="watch")
 			master.update()
-			fix_SwordAndScalePodcasts.fixPodcasts()
+			utils.fix_SwordAndScalePodcasts.fixPodcasts()
 		
 		self.songCntStr.set("Performing calculations...")
 		master.config(cursor="watch")
@@ -670,6 +671,7 @@ class EditMetadata(Frame):
 		self.missingMetadata = []
 		self.corruptMP3 = []
 		self.not128kBitrate = []
+		self.not64kBitrate = []
 		self.all_music.clear()
 		
 		music_formats = ['mp3','m4a','wav']
@@ -705,9 +707,11 @@ class EditMetadata(Frame):
 				else:
 					self.recreateMP3File(fn)
 
-					# s = MP3(fn)
-					# if int(s.info.bitrate / 1000) != 128:
-					# 	self.not128kBitrate.append(fn)
+			s = MP3(fn)
+			if s['TCON'].text[0] != "Podcast" and int(s.info.bitrate / 1000) != 128:
+				self.not128kBitrate.append(fn)
+			if s['TCON'].text[0] == "Podcast" and int(s.info.bitrate / 1000) != 64:
+				self.not64kBitrate.append(fn)
 
 		# get size of entire directory and convert total time of all songs
 		convertedSize, convertedTime = self.conversion(size, length)
@@ -1194,13 +1198,29 @@ class EditMetadata(Frame):
 			bitrateLb.grid(row=3, sticky=N+S)
 			vsb.grid(row=3, column=6, sticky=N+S+W)
 		
+			genre128k = []
+			genre64k = []
 			for f in self.not128kBitrate:
-				try:
-					bitrateLb.insert("", END, values=(f, round(MP3(f).info.bitrate/1000),2))
-				except HeaderNotFoundError:
-					# self.recreateMP3File(f)
-					# bitrateLb.insert("", END, values=(f, round(MP3(f).info.bitrate/1000),2))
-					continue
+				genre128k.append(MP3(f)['TCON'].text[0])
+			for f in self.not64kBitrate:
+				genre64k.append(MP3(f)['TCON'].text[0])
+
+			# if set(self.not128kBitrate) <= set(os.listdir()) and all(genre != "Podcast" for genre in genre128k):
+			# 	for f in self.not128kBitrate:
+			# 		try:
+			# 			bitrateLb.insert("", END, values=(f, round(MP3(f).info.bitrate/1000),2))
+			# 		except HeaderNotFoundError:
+			# 			# self.recreateMP3File(f)
+			# 			# bitrateLb.insert("", END, values=(f, round(MP3(f).info.bitrate/1000),2))
+			# 			continue
+			if set(self.not64kBitrate) <= set(os.listdir()) and all(genre == "Podcast" for genre in genre64k):
+				for f in self.not64kBitrate:
+					try:
+						bitrateLb.insert("", END, values=(f, round(MP3(f).info.bitrate/1000),2))
+					except HeaderNotFoundError:
+						# self.recreateMP3File(f)
+						# bitrateLb.insert("", END, values=(f, round(MP3(f).info.bitrate/1000),2))
+						continue
 		# create radio buttons
 		for text, rate in BITRATES:
 			radioBtn = Radiobutton(self.bitrate, text=text, variable=bitrate, value=rate)
@@ -1224,5 +1244,5 @@ if __name__ == '__main__':
 
 	# add program icon
 	progDir = sys.path[0]
-	master.iconphoto(True, PhotoImage(file=os.path.join(progDir, 'music-note-icon.png')))
+	master.iconphoto(True, PhotoImage(file=os.path.join(progDir, 'media\icons\music-note-icon.png')))
 	master.mainloop()

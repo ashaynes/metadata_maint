@@ -31,7 +31,7 @@ def lyrics(self):
 
 	artist = self.song['TPE2'][0] if 'TPE2' in self.song.keys() else "No Artist"
 	
-	if USLT_FOUND is False and self.song['TCON'][0] is not "Podcast":
+	if USLT_FOUND is False and self.song['TCON'].text[0] is not "Podcast":
 		for url in URLS:
 			completeUrl = url.format(re.sub(r'[^A-Za-z0-9\-]+', '', search_song_title), re.sub(r'[^A-Za-z0-9\-]+', '', search_artist))
 

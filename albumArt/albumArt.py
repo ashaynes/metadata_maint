@@ -47,7 +47,7 @@ def addArt(self):
                 image_path = "{0}{1} ({2}).jpg".format(
                     IMAGE_PATH, 
                     image_album, 
-                    image_path)
+                    image_artist)
                 
                 with open(image_path, "rb") as image:
                     file_image = image.read()
