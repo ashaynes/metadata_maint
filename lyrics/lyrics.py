@@ -1,4 +1,4 @@
-from mutagen.id3 import ID3, TRCK, TCON, TPOS, TALB, TIT2, TPE1, TPE2, TDRC, APIC, USLT, TBPM, ID3NoHeaderError
+from mutagen.id3 import ID3, TRCK, TCON, TPOS, TALB, TIT2, TPE1, TPE2, TDRC, APIC, USLT, SYLT, TBPM, ID3NoHeaderError
 from mutagen.mp3 import MP3, HeaderNotFoundError
 from bs4 import BeautifulSoup
 import tkinter as tk
@@ -107,16 +107,29 @@ def saveFile(args):
 	self = args[0]
 	textbox = args[1]
 
-	# remove old USLT tag(self) from MP3 file and add new USLT tag to file
+	# remove old USLT and SYLT tags from MP3 file and add new ones
 	listOfKeys = list(self.song.keys())
 	for key in listOfKeys:
-		if 'USLT' in key:
+		if 'USLT' in key or 'SYLT' in key:
 			self.song.pop(key)
-	
-	self.song['USLT'] = USLT(encoding=3, lang=u'eng', text=textbox.get(1.0, 'end'))
+
+	text = textbox.get(1.0, "end")
+	if self.song['TCON'] is not "Podcast":
+		self.song['SYLT'] = SYLT(encoding=3, lang=u'eng', text=makeSyltTag(text))
+	self.song['USLT'] = USLT(encoding=3, lang=u'eng', text=text)
 	self.song.save(self.song_path.get(), v2_version=3)
-	showinfo("Song Description","Description has been saved!") if self.song['TCON'] == "Podcast" else showinfo("Song Lyrics", "Lyrics have been saved!")
+
+	showinfo("Song Description","Description has been saved!") if self.song['TCON'] is "Podcast" else showinfo("Song Lyrics", "Lyrics have been saved!")
 	closeWindow(self)
+
+def makeSyltTag(text):
+	syltLyrics = list()
+	i = 0
+	linesOfText = text.split('\n')
+	for line in linesOfText:
+		syltLyrics.append((line, i))
+		i += 1
+	return syltLyrics
 
 def closeWindow(self):
 	self.saveLDWin.destroy()

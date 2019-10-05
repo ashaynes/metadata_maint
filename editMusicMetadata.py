@@ -1,6 +1,6 @@
 # usr/bin/env python3
 
-from mutagen.id3 import ID3, TRCK, TCON, TPOS, TALB, TIT2, TPE1, TPE2, TDRC, APIC, USLT, TBPM, ID3NoHeaderError
+from mutagen.id3 import ID3, TRCK, TCON, TPOS, TALB, TIT2, TPE1, TPE2, TDRC, APIC, USLT, SYLT, TBPM, ID3NoHeaderError
 from mutagen.mp3 import MP3, HeaderNotFoundError
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
@@ -10,17 +10,16 @@ from selenium import webdriver
 from tkinter.messagebox import *
 from tkinter.filedialog import *
 from bs4 import BeautifulSoup
+from PIL import Image, ImageTk
+from urllib.request import *
 import tkinter.font as tkFont
 import ffmpy
-import PIL.Image
-import PIL.ImageTk
 import pygame as pg
 import numpy as np
 import subprocess
 import threading
 import functools
 import urllib
-from urllib.request import *
 import inspect
 import mutagen
 import time
@@ -100,7 +99,7 @@ class EditMetadata(Frame):
 		self.current_song_playing = StringVar()
 		
 		self.musicLb_columns = ['Title', 'Artist(s)', 'Album', 'Genre', 'Time', 'Bitrate']
-		self.tags = ['TIT2', 'TPE1', 'TALB', 'TPE2', 'TCON', 'TDRC', 'TRCK', 'TBPM', 'TPOS', 'APIC', 'USLT']
+		self.tags = ['TIT2', 'TPE1', 'TALB', 'TPE2', 'TCON', 'TDRC', 'TRCK', 'TBPM', 'TPOS', 'APIC', 'USLT', 'SYLT']
 		self.cats = [self.title, self.artist, self.album, self.performer, self.genre, self.date, self.tracknumber, self.bpm, self.discnumber, self.albumart]
 		
 		# creating popup Menu for Listbox
@@ -175,9 +174,9 @@ class EditMetadata(Frame):
 		# creating empty Canvas for media player (album art place holder)
 		self.player = LabelFrame(master, text='Media Player')
 		self.player.grid(row=1, column=3, sticky='WE')
-		self.original = PIL.Image.open(self.default)
-		self.resized = self.original.resize((194,194), PIL.Image.ANTIALIAS)
-		self.albumart = PIL.ImageTk.PhotoImage(self.resized)
+		self.original = Image.open(self.default)
+		self.resized = self.original.resize((194,194), Image.ANTIALIAS)
+		self.albumart = ImageTk.PhotoImage(self.resized)
 		self.canvas = Canvas(self.player, width=194, height=194)
 		self.canvas_image = self.canvas.create_image(97, 97, image=self.albumart)
 		self.canvas.grid(row=1, rowspan=3, padx=49, columnspan=3, sticky='NSEW')
@@ -337,9 +336,10 @@ class EditMetadata(Frame):
 			self.remove = []
 			apicFound = [key for key in self.song.keys() if "APIC" in key]
 			usltFound = [key for key in self.song.keys() if "USLT" in key]
+			syltFound = [key for key in self.song.keys() if "SYLT" in key]
 			
 			for t in self.song.keys():
-				if t in apicFound or t in usltFound:
+				if t in apicFound or t in usltFound or t in syltFound:
 					continue
 				if t not in self.tags:
 					self.remove.append(t)
@@ -360,7 +360,8 @@ class EditMetadata(Frame):
 		
 			# print whatever contents are in the tags in the .mp3 file
 			for k in self.song.keys():
-				if "APIC" in k or "USLT" in k: continue
+				if "APIC" in k or "USLT" in k or "SYLT" in k:
+					continue
 				self.cats[self.tags.index(k)].set(self.song[k][0]) if k not in self.remove else next
 				
 			# update self.getAlbumArt Label, depending on whether APIC tag is in MP3
@@ -400,12 +401,12 @@ class EditMetadata(Frame):
 			self.edit.config(state=NORMAL)
 
 			# display album art on file else display default art
-			self.albumArt = PIL.Image.open(self.default)			# display default album art (No Image Available)
+			self.albumArt = Image.open(self.default)			# display default album art (No Image Available)
 			try:
 				for tag in self.song.keys():
 					if "APIC" in tag:
 						imageData = self.song[tag].data
-						self.albumArt = PIL.Image.open(io.BytesIO(imageData))		# display album art found if art is embedded to mp3
+						self.albumArt = Image.open(io.BytesIO(imageData))		# display album art found if art is embedded to mp3
 						break
 
 			except Exception as e:
@@ -413,9 +414,9 @@ class EditMetadata(Frame):
 					self.song.pop(tag)
 					self.song.save()
 		
-			resized = self.albumArt.resize((194, 194), PIL.Image.ANTIALIAS)
+			resized = self.albumArt.resize((194, 194), Image.ANTIALIAS)
 			# resized.show()
-			self.albumImage = PIL.ImageTk.PhotoImage(resized)
+			self.albumImage = ImageTk.PhotoImage(resized)
 			self.canvas.itemconfigure(self.canvas_image, image=self.albumImage)
 		# do this if header is missing
 		except HeaderNotFoundError:
@@ -633,9 +634,9 @@ class EditMetadata(Frame):
 		'''
 		
 		# clearing any album art (set to default)
-		self.art = PIL.Image.open(self.default)
-		resized = self.art.resize((194, 194), PIL.Image.ANTIALIAS)
-		self.artImage = PIL.ImageTk.PhotoImage(resized)
+		self.art = Image.open(self.default)
+		resized = self.art.resize((194, 194), Image.ANTIALIAS)
+		self.artImage = ImageTk.PhotoImage(resized)
 		self.canvas.itemconfigure(self.canvas_image, image=self.artImage)
 			
 		size = length = 0
