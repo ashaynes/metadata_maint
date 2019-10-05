@@ -10,7 +10,7 @@ from unidecode import unidecode
 import re
 import tkinter as tk
 import sqlite3 as sq
-import blowfish
+# import blowfish
 
 import windows.customWindowSize as windowSize
 import utils.defaults as defaults
@@ -25,26 +25,71 @@ def addArt(self):
     '''
     if os.path.exists(f'{IMAGE_PATH}\\temp'):
         os.chdir(f'{IMAGE_PATH}\\temp')
-    # elif os.path.exists(f'{IMAGE_PATH}'):
-        
         if len(os.listdir()) > 1:
             showinfo("More Than One Image Downloaded", "More than one image was downloaded for the selected album. Please select your preferred album cover to be saved.")
-        elif len(os.listdir()) == 1:
-            # rename image / remove "_[count]" from file name and move to main folder, create APIC and add to MP3
-            f = os.listdir()[0]
-            f_rename = re.sub(r'_\d+', '', f)
-            os.replace(f, f"{IMAGE_PATH}\\{f_rename}")
+    elif len(os.listdir()) == 1:
+        # rename image / remove "_[count]" from file name and move to main folder, create APIC and add to MP3
+        f = os.listdir()[0]
+        f_rename = re.sub(r'_\d+', '', f)
+        os.replace(f, f"{IMAGE_PATH}\\{f_rename}")
+        
+        self.songCntStr.set(f"Adding album art to '{self.song['TIT2'][0]}'...")
+        
+        try:
+            image_path = "{0}{1} ({2}).jpg".format(IMAGE_PATH, self.song['TALB'][0], self.song['TPE2'][0])
+            image_album = self.song['TALB'][0]
+            image_artist = self.song['TPE2'][0]
             
-            self.songCntStr.set(f"Adding album art to '{self.song['TIT2'][0]}'...")
+            # resize the album art if not 250x250 px
+            with Image.open(image_path) as i:
+                height, width = i.size
+            if height is not 250 and width is not 250:
+                resizeArt(image_path)
+
+            with open(image_path, "rb") as image:
+                file_image = image.read()
+                imageBytes = bytes(bytearray(file_image))
             
+            for song in self.all_music:
+                thisSong = MP3(self.dname + "\\" + song[0])
+                TALB_found = [key.find("TALB") for key in thisSong.keys()]
+                TPE2_found = [key.find("TPE2") for key in thisSong.keys()]
+                APIC_found = [key.find("APIC") for key in thisSong.keys()]
+                
+                # do nothing if the APIC already exists in the MP3 and the JPEGs match
+                if 0 in APIC_found:
+                    for tag in thisSong.keys():
+                        if "APIC" in tag:
+                            key = tag
+                            currentAPIC = thisSong[key].data
+                            if currentAPIC == imageBytes:
+                                break
+                # add the JPEG to APIC if there is no APIC tag in the MP3 and the album and artist names match
+                else:
+                    if 0 in TALB_found and 0 in TPE2_found:
+                        if thisSong['TALB'][0] == image_album and thisSong['TPE2'][0] == image_artist:
+                            thisSong['APIC'] = APIC(encoding=3, mime=u'image/jpeg', type=3, desc=thisSong['TALB'][0],
+                                                    data=imageBytes)
+                            thisSong.save()
+        
+        except Exception as e:
+            showinfo("Error", f"{inspect.currentframe().f_code.co_name} - {e}")
+    else:
+        os.chdir(f'{IMAGE_PATH}')
+        if len(os.listdir()) > 1:
             try:
                 image_path = "{0}{1} ({2}).jpg".format(IMAGE_PATH, self.song['TALB'][0], self.song['TPE2'][0])
-                image_album = self.song['TALB'][0]
-                image_artist = self.song['TPE2'][0]
+                image_album = image_path.split("\\")[-1].rsplit(" (", maxsplit=1)[0]
+                image_artist = image_path.split("\\")[-1].rsplit(" (", maxsplit=1)[-1].replace(").jpg", "")
                 
+                with Image.open(image_path) as i:
+                    width, height = i.size
+                if height is not 250 and width is not 250:
+                    resizeArt(image_path)
+
                 with open(image_path, "rb") as image:
-                    file_image = image.read()
-                    imageBytes = bytes(bytearray(file_image))
+                    f = image.read()
+                    imageBytes = bytes(bytearray(f))
                 
                 for song in self.all_music:
                     thisSong = MP3(self.dname + "\\" + song[0])
@@ -71,43 +116,7 @@ def addArt(self):
             except Exception as e:
                 showinfo("Error", f"{inspect.currentframe().f_code.co_name} - {e}")
         else:
-            os.chdir(f'{IMAGE_PATH}')
-            if len(os.listdir()) > 1:
-                try:
-                    image_path = "{0}{1} ({2}).jpg".format(IMAGE_PATH, self.song['TALB'][0], self.song['TPE2'][0])
-                    image_album = image_path.split("\\")[-1].rsplit(" (", maxsplit=1)[0]
-                    image_artist = image_path.split("\\")[-1].rsplit(" (", maxsplit=1)[-1].replace(").jpg", "")
-                    
-                    with open(image_path, "rb") as image:
-                        f = image.read()
-                        imageBytes = bytes(bytearray(f))
-                    
-                    for song in self.all_music:
-                        thisSong = MP3(self.dname + "\\" + song[0])
-                        TALB_found = [key.find("TALB") for key in thisSong.keys()]
-                        TPE2_found = [key.find("TPE2") for key in thisSong.keys()]
-                        APIC_found = [key.find("APIC") for key in thisSong.keys()]
-                        
-                        # do nothing if the APIC already exists in the MP3 and the JPEGs match
-                        if 0 in APIC_found:
-                            for tag in thisSong.keys():
-                                if "APIC" in tag:
-                                    key = tag
-                                    currentAPIC = thisSong[key].data
-                                    if currentAPIC == imageBytes:
-                                        break
-                        # add the JPEG to APIC if there is no APIC tag in the MP3 and the album and artist names match
-                        else:
-                            if 0 in TALB_found and 0 in TPE2_found:
-                                if thisSong['TALB'][0] == image_album and thisSong['TPE2'][0] == image_artist:
-                                    thisSong['APIC'] = APIC(encoding=3, mime=u'image/jpeg', type=3, desc=thisSong['TALB'][0],
-                                                            data=imageBytes)
-                                    thisSong.save()
-                
-                except Exception as e:
-                    showinfo("Error", f"{inspect.currentframe().f_code.co_name} - {e}")
-            else:
-                showinfo("No Album Art Downloaded", "Sorry! No album art was downloaded for the selected album :(")
+            showinfo("No Album Art Downloaded", "Sorry! No album art was downloaded for the selected album :(")
     self.getMusic()
         
 def downloadArt(self):
@@ -193,7 +202,7 @@ def removeArt(info):
 
 def resizeArt(file):
     '''
-    Converting image to true JPEG file and resizing, defaults to 250x250
+    Converting image to true JPEG file and resizing to 250x250
     '''
     im = Image.open(file)
     im = im.resize((250, 250), Image.ANTIALIAS)
