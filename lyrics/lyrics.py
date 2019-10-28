@@ -29,8 +29,6 @@ def lyrics(self):
 		search_artist = unidecode(self.song['TPE2'][0].replace(" ","-").lower())
 		search_song_title = unidecode(self.song['TIT2'][0].replace(" ","-").lower())
 
-	artist = self.song['TPE2'][0] if 'TPE2' in self.song.keys() else "No Artist"
-	
 	if USLT_FOUND is False and self.song['TCON'].text[0] is not "Podcast":
 		for url in URLS:
 			completeUrl = url.format(re.sub(r'[^A-Za-z0-9\-]+', '', search_song_title), re.sub(r'[^A-Za-z0-9\-]+', '', search_artist))
@@ -81,7 +79,7 @@ def lyrics(self):
 		command=functools.partial(switchModes, (modes, state, textbox, save)))
 	mode.grid(row=7, column=0, padx=10)
 	
-	if textbox.get(0.0, tk.END) is '\n':
+	if textbox.get(0.0, tk.END) is not '\n':
 		modes.set("Edit Mode")
 		textbox.config(state=tk.NORMAL, cursor="xterm")
 		state.set(True)

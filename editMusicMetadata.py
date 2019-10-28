@@ -648,17 +648,17 @@ class EditMetadata(Frame):
 			self.cats[c].set("")
 
 		# run the podcast scripts to do initial edits on the filenames and the metadata
-		if "Sex With Emily" in os.getcwd():
-			self.songCntStr.set("Editing recently downloaded \'Sex With Emily\' podcasts...")
-			master.config(cursor="watch")
-			master.update()
-			utils.fix_SexWithEmilyPodcasts.fixPodcasts()
+		# if "Sex With Emily" in os.getcwd():
+		# 	self.songCntStr.set("Editing recently downloaded \'Sex With Emily\' podcasts...")
+		# 	master.config(cursor="watch")
+		# 	master.update()
+		# 	utils.fix_SexWithEmilyPodcasts.fixPodcasts()
 		
-		if "Sword and Scale" in os.getcwd():
-			self.songCntStr.set("Editing recently downloaded \'Sword and Scale\' podcasts...")
-			master.config(cursor="watch")
-			master.update()
-			utils.fix_SwordAndScalePodcasts.fixPodcasts()
+		# if "Sword and Scale" in os.getcwd():
+		# 	self.songCntStr.set("Editing recently downloaded \'Sword and Scale\' podcasts...")
+		# 	master.config(cursor="watch")
+		# 	master.update()
+		# 	utils.fix_SwordAndScalePodcasts.fixPodcasts()
 		
 		self.songCntStr.set("Performing calculations...")
 		master.config(cursor="watch")
@@ -676,7 +676,8 @@ class EditMetadata(Frame):
 		
 		music_formats = ['mp3','m4a','wav']
 		music = [fn for fn in os.listdir() if fn[-3:] in music_formats]
-			
+		
+		print (f"Songs: {len(music)}")
 		for fn in music:
 			if "mp3" not in fn:
 				self.songCntStr.set(f"Converting {fn} to MP3...")
@@ -693,25 +694,28 @@ class EditMetadata(Frame):
 				s = MP3(fn)
 				self.all_music.append([fn, s['TIT2'][0], s['TPE1'][0], s['TALB'][0], s['TCON'][0], ('{0:02}:{1:02}:{2:02}').format(
 					int(s.info.length % 86400) // 3600, int(s.info.length % 3600) // 60, int(s.info.length % 60)), int(s.info.bitrate / 1000)])
+
 				size += os.stat(fn).st_size
 				length += s.info.length
+
+				if s['TCON'][0] != "Podcast" and int(s.info.bitrate / 1000) != 128:
+					self.not128kBitrate.append(fn)
+				if s['TCON'][0] == "Podcast" and int(s.info.bitrate / 1000) != 64:
+					self.not64kBitrate.append(fn)
+
 			except KeyError as e:
 				self.missingMetadata.append(fn)
 				self.all_music.append([fn, fn, " ", " ", " ", ('{0:02}:{1:02}:{2:02}').format(
 					int(s.info.length % 86400) // 3600, int(s.info.length % 3600) // 60, int(s.info.length % 60)), int(s.info.bitrate / 1000)])
 				size += os.stat(fn).st_size
 				length += s.info.length
+				self.songCntStr.set(f"ERROR!! {e}")
 			except HeaderNotFoundError as e:
 				if fn[-4:] == ".wma":
 					showerror("WMA Conversion Attempt","Aborting conversion! Possible DRM protection.")
 				else:
 					self.recreateMP3File(fn)
-
-			s = MP3(fn)
-			if s['TCON'].text[0] != "Podcast" and int(s.info.bitrate / 1000) != 128:
-				self.not128kBitrate.append(fn)
-			if s['TCON'].text[0] == "Podcast" and int(s.info.bitrate / 1000) != 64:
-				self.not64kBitrate.append(fn)
+				self.songCntStr.set(f"ERROR!! {e}")
 
 		# get size of entire directory and convert total time of all songs
 		convertedSize, convertedTime = self.conversion(size, length)
@@ -767,7 +771,7 @@ class EditMetadata(Frame):
 					self.metaMenu.entryconfig(2, state=NORMAL)
 
 	def searchMetadata(self):
-		'''extr
+		'''
 		Search for missing metadata via the Internet - using MusicBrainz API
 		'''
 		metaWin = Toplevel()
