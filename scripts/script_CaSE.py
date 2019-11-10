@@ -1,13 +1,22 @@
 import os
 import re
-from mutagen.mp4 import MP4
+import ffmpy
 from mutagen.id3 import TIT2, TPE1, TPE2, TRCK, TPOS, TALB, TCON, TDRC
-
-# TODO: Need to refactor how to handle MP4-type files
 
 def _rreplace(s, old, new, occurrence):
     li = s.rsplit(old, occurrence)
     return new.join(li)
+
+def _convert(podcasts):
+    for podcast in podcasts:
+        songFile = f"{os.getcwd()}\\{podcast}"
+        convertedFile = f"{os.getcwd()}\\{podcast[:-3]}mp3"
+        print (f"Converting {songFile} to {convertedFile}...")
+
+        ff = ffmpy.FFmpeg(inputs={songFile: None}, outputs={convertedFile: '-y -ac 2 -ar 41000 -ab 54k'})
+        ff.run()
+
+        print (f"Converted to {convertedFile}!!", "\n")
 
 def addArtist(podcasts):
     i = 0
@@ -39,4 +48,5 @@ os.chdir(directory)
 
 podcasts = os.listdir()
 
+_convert(podcasts)
 addArtist(podcasts)
