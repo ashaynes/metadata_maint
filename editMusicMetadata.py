@@ -1037,7 +1037,7 @@ class EditMetadata(Frame):
 		convertMP3_Columns = ['Title', 'File Type']
 		FILETYPES = [
 		('.mp3', 'mp3'),
-		('.mp4', 'mp4'),
+		('.m4a', 'm4a'),
 		('.avi', 'avi'),
 		('.wav', 'wav')]
 
