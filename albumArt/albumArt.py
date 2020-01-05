@@ -15,6 +15,7 @@ from PIL import Image, ImageTk
 from skimage.util.shape import view_as_blocks
 from unidecode import unidecode
 
+import utils
 import utils.defaults as defaults
 import windows.customWindowSize as windowSize
 
@@ -28,7 +29,7 @@ def addArt(self):
     '''
     if os.path.exists(f'{IMAGE_PATH}\\temp'):
         os.chdir(f'{IMAGE_PATH}\\temp')
-        if len(os.listdir()) > 0:
+        if len(os.listdir()) > 1:
             # TODO: create a new window that displays multiple album covers and allows the user to select which one (ONLY!)
             # they want to keep. The selected album cover is formated and moved to the main album cover directory and
             # the others are removed from the temp directory

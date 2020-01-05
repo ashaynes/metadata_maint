@@ -1,41 +1,44 @@
 # usr/bin/env python3
 
-from mutagen.id3 import ID3, TRCK, TCON, TPOS, TALB, TIT2, TPE1, TPE2, TDRC, APIC, USLT, TBPM, ID3NoHeaderError
-from mutagen.mp3 import MP3, HeaderNotFoundError
-from selenium.webdriver.support import expected_conditions as EC
-from selenium.webdriver.support.ui import WebDriverWait
-from selenium.common.exceptions import TimeoutException
-from selenium.webdriver.common.by import By
-from selenium import webdriver
-from tkinter.messagebox import *
-from tkinter.filedialog import *
-from bs4 import BeautifulSoup
+import functools
+import inspect
+import io
+import math
+import re
+import subprocess
+import sys
+import threading
+import time
 import tkinter.font as tkFont
+import urllib
+from tkinter.filedialog import *
+from tkinter.messagebox import *
+from urllib.request import *
+
 import ffmpy
+import musicbrainzngs as mb
+import mutagen
+import numpy as np
 import PIL.Image
 import PIL.ImageTk
 import pygame as pg
-import numpy as np
-import subprocess
-import threading
-import functools
-import urllib
-from urllib.request import *
-import inspect
-import mutagen
-import time
-import math
-import sys
-import re
-import io
-import musicbrainzngs as mb
+from bs4 import BeautifulSoup
+from mutagen.id3 import (APIC, ID3, TALB, TBPM, TCON, TDRC, TIT2, TPE1, TPE2,
+                         TPOS, TRCK, USLT, ID3NoHeaderError)
+from mutagen.mp3 import MP3, HeaderNotFoundError
+from selenium import webdriver
+from selenium.common.exceptions import TimeoutException
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support import expected_conditions as EC
+from selenium.webdriver.support.ui import WebDriverWait
 
-import audio.playbackMusicFile as playBack
-import utils as utils
-import utils.defaults as default
 import albumArt.albumArt as albumArt
+import audio.playbackMusicFile as playBack
 import lyrics.lyrics as lyrics
+import utils
+import utils.defaults as default
 import windows.customWindowSize as windows
+
 
 '''
 TODO:
@@ -130,6 +133,11 @@ class EditMetadata(Frame):
 		self.mastermenu.add_cascade(label="Directory", menu=self.editMenu, underline=0)
 		self.editMenu.add_command(label="Convert to MP3", command=self.convertToMP3)
 		self.editMenu.add_command(label="Convert Bitrate", command=self.convertBitrate)
+		# analyze MP3 options
+		self.editMenu = Menu(self.mastermenu, tearoff=0)
+		self.mastermenu.add_cascade(label="Analyze", menu=self.editMenu, underline=0)
+		self.editMenu.add_command(label="Calculate BPM", command=self.launchBpmAnalyzer)
+		self.editMenu.add_command(label="Analyze Gain", command=self.analyzeGain)
 		# metadata menu option
 		self.metaMenu = Menu(self.mastermenu, tearoff=0)
 		self.mastermenu.add_cascade(label="Metadata", menu=self.metaMenu, underline=0)
@@ -532,6 +540,7 @@ class EditMetadata(Frame):
 		try:
 			if deleteFileResult == True:
 				result = subprocess.check_output(['cmd','/c','del', self.value['text']])
+				print (result)
 				if True not in [self.value['text'] in song for song in os.listdir()]:
 					showinfo("Deleted File", f"Successfully deleted \'{self.value['text']}\'!")
 					self.getMusic()
@@ -1022,7 +1031,7 @@ class EditMetadata(Frame):
 					for t in song.keys():
 						temp[t] = song[t]
 				
-					ff = ffmpy.FFmpeg(inputs={songFile: None}, outputs={f"new_{songFile}": '-ab 128k'})
+					ff = ffmpy.FFmpeg(inputs={songFile: None}, outputs={f"new_{songTitle}": '-ab 128k'})
 					ff.run()
 					
 					os.remove(f"{self.dname}\\{songTitle}")
@@ -1237,6 +1246,22 @@ class EditMetadata(Frame):
 		convertBtn.grid(column=0, columnspan=3, row=4, pady=5, padx=5, sticky=E+W)
 		cancelBtn = Button(self.bitrate, text="Cancel", command=closeWin)
 		cancelBtn.grid(column=3, columnspan=3, row=4, pady=5, padx=5, sticky=E+W)
+
+	def launchBpmAnalyzer(self):
+		'''
+		Launch MixMeister BPM Analyzer
+		'''
+		launchBpm = ["C:\Program Files (x86)\MixMeister BPM Analyzer\BpmAnalyzer.exe"]
+		subprocess.run(launchBpm)
+		self.getMusic()
+
+	def analyzeGain(self):
+		'''
+		Lanuch MP3Gain
+		'''
+		launchMp3Gain = ["C:\Program Files (x86)\MP3Gain\MP3GainGUI.exe"]
+		subprocess.run(launchMp3Gain)
+		self.getMusic()
 
 if __name__ == '__main__':
 	import tkinter
