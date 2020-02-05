@@ -5,7 +5,7 @@ import tkinter as tk
 import tkinter.ttk
 import requests
 import requests_cache
-from tkinter.messagebox import *
+from tkinter.messagebox import showinfo, showerror
 import functools
 from unidecode import unidecode
 

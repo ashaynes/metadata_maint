@@ -33,6 +33,8 @@ def addArt(self):
             # TODO: create a new window that displays multiple album covers and allows the user to select which one (ONLY!)
             # they want to keep. The selected album cover is formated and moved to the main album cover directory and
             # the others are removed from the temp directory
+            # Better yet, get rid of the entire temp directory. Just hold the byte array in memory then dispose based on what the user
+            # selects or if just one image is found, store that directly to the MP3 then POOF! be gone
             showinfo("More Than One Image Downloaded", "More than one image was downloaded for the selected album. Please select your preferred album cover to be saved.")
 
             # self.downloadAlbumArtWindow = tk.Toplevel()
@@ -57,7 +59,7 @@ def addArt(self):
                 # resize the album art if not 250x250 px
                 with Image.open(image_path) as i:
                     height, width = i.size
-                if height is not 250 and width is not 250:
+                if height != 250 and width != 250:
                     resizeArt(image_path)
 
                 with open(image_path, "rb") as image:

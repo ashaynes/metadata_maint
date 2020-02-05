@@ -11,7 +11,12 @@ import threading
 import time
 import tkinter.font as tkFont
 import urllib
-from tkinter.filedialog import *
+from tkinter import (CENTER, DISABLED, END, EW, EXTENDED, NORMAL, VERTICAL,
+                     WORD, BooleanVar, Button, Canvas, E,
+                     Entry, Frame, IntVar, Label, LabelFrame, Menu, N,
+                     PhotoImage, Radiobutton, S, Scrollbar, StringVar,
+                     TclError, Text, Tk, Toplevel, W)
+from tkinter.filedialog import askdirectory
 from tkinter.messagebox import *
 from urllib.request import *
 
@@ -1251,7 +1256,7 @@ class EditMetadata(Frame):
 		'''
 		Launch MixMeister BPM Analyzer
 		'''
-		launchBpm = ["C:\Program Files (x86)\MixMeister BPM Analyzer\BpmAnalyzer.exe"]
+		launchBpm = ["C:\\Program Files (x86)\\MixMeister BPM Analyzer\\BpmAnalyzer.exe"]
 		subprocess.run(launchBpm)
 		self.getMusic()
 
@@ -1259,7 +1264,7 @@ class EditMetadata(Frame):
 		'''
 		Lanuch MP3Gain
 		'''
-		launchMp3Gain = ["C:\Program Files (x86)\MP3Gain\MP3GainGUI.exe"]
+		launchMp3Gain = ["C:\\Program Files (x86)\\MP3Gain\\MP3GainGUI.exe"]
 		subprocess.run(launchMp3Gain)
 		self.getMusic()
 
@@ -1273,5 +1278,5 @@ if __name__ == '__main__':
 
 	# add program icon
 	progDir = sys.path[0]
-	master.iconphoto(True, PhotoImage(file=os.path.join(progDir, 'media\icons\music-note-icon.png')))
+	master.iconphoto(True, PhotoImage(file=os.path.join(progDir, 'media\\icons\\music-note-icon.png')))
 	master.mainloop()

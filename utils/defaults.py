@@ -1,10 +1,9 @@
-###############################################################################
-# defaults.py
-# -----------------------------------------------------------------------------
-# Stores all of the default GUI settings depending on the environment it is
-# being launched
-###############################################################################
-
+'''
+defaults.py
+-----------------------------------------------------------------------------
+Stores all of the default GUI settings depending on the environment it is
+being launched
+'''
 import os
 
 if os.name == "nt":
