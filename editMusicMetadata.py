@@ -4,6 +4,7 @@ import functools
 import inspect
 import io
 import math
+import os
 import re
 import subprocess
 import sys
@@ -11,11 +12,11 @@ import threading
 import time
 import tkinter.font as tkFont
 import urllib
-from tkinter import (CENTER, DISABLED, END, EW, EXTENDED, NORMAL, VERTICAL,
-                     WORD, BooleanVar, Button, Canvas, E,
-                     Entry, Frame, IntVar, Label, LabelFrame, Menu, N,
-                     PhotoImage, Radiobutton, S, Scrollbar, StringVar,
-                     TclError, Text, Tk, Toplevel, W)
+from tkinter import (
+    CENTER, DISABLED, END, EW, EXTENDED, NORMAL, VERTICAL, WORD, BooleanVar,
+    Button, Canvas, E, Entry, Frame, IntVar, Label, LabelFrame, Menu, N,
+    OptionMenu, PhotoImage, Radiobutton, S, Scrollbar, StringVar, TclError,
+    Text, Tk, Toplevel, W)
 from tkinter.filedialog import askdirectory
 from tkinter.messagebox import *
 from urllib.request import *
@@ -40,6 +41,7 @@ from selenium.webdriver.support.ui import WebDriverWait
 import albumArt.albumArt as albumArt
 import audio.playbackMusicFile as playBack
 import lyrics.lyrics as lyrics
+import shared.genres as genres
 import utils
 import utils.defaults as default
 import windows.customWindowSize as windows
@@ -75,7 +77,7 @@ class EditMetadata(Frame):
 			self.mode.set("Edit Mode") if self.state.get() == True else self.mode.set("View Mode")
 			self.editFile() if self.state.get() == True else self.viewFile()
 
-		'''set initial values to certain parameters used within the program'''
+		# set initial values to certain parameters used within the program
 		if os.name == "nt":
 			os.chdir("C:\\Code\\Music Metadata Editor\\")
 			self.default = f"{os.getcwd()}\\media\\images\\No Image Available.jpg"
@@ -83,30 +85,31 @@ class EditMetadata(Frame):
 			os.chdir('/home/alex/Music/')
 			self.default = f"{os.getcwd()}/No Image Available.jpg"
 		
+		# register client to musicBrainz
 		mb.set_useragent("MP3 Editor", "1.0", "alexbballa@hotmail.com")
 		self.paused = False
 		self.entries = []
 		self.l = ['Song Title','Artist(s)','Album','Album Artist','Genre','Year','Track Number','BPM','Disc Number']
 		self.all_music = []
 		
-		self.song_path = StringVar()
-		self.title = StringVar()
-		self.artist = StringVar()
-		self.album = StringVar()
-		self.performer = StringVar()
-		self.genre = StringVar()
-		self.date = StringVar()
-		self.tracknumber = StringVar()
-		self.bpm = StringVar()
-		self.discnumber = StringVar()
-		self.albumart = StringVar()
+		self.song_path = StringVar(master)
+		self.title = StringVar(master)
+		self.artist = StringVar(master)
+		self.album = StringVar(master)
+		self.performer = StringVar(master)
+		self.genre = StringVar(master)
+		self.date = StringVar(master)
+		self.tracknumber = StringVar(master)
+		self.bpm = StringVar(master)
+		self.discnumber = StringVar(master)
+		self.albumart = StringVar(master)
 		self.directoryStr = ""
-		self.searchStr = StringVar()
+		self.searchStr = StringVar(master)
 		# self.searchStr.trace("w", lambda var, index, mode: self.update_lb())
-		self.songCntStr = StringVar()
+		self.songCntStr = StringVar(master)
 		self.path = StringVar()
-		self.current_song_selected = StringVar()
-		self.current_song_playing = StringVar()
+		self.current_song_selected = StringVar(master)
+		self.current_song_playing = StringVar(master)
 		
 		self.musicLb_columns = ['Title', 'Artist(s)', 'Album', 'Genre', 'Time', 'Bitrate']
 		self.tags = ['TIT2', 'TPE1', 'TALB', 'TPE2', 'TCON', 'TDRC', 'TRCK', 'TBPM', 'TPOS', 'APIC', 'USLT', 'SYLT']
@@ -168,10 +171,17 @@ class EditMetadata(Frame):
 		# creating Label and Entry items
 		metadata = LabelFrame(master, text='Metadata')
 		metadata.grid(columnspan=3, sticky=W, padx=10, ipadx=2)
+		# change TCON from Entry to OptionMenu
 		for item in self.l:
 			i = self.l.index(item)
 			Label(metadata, text=f"{item}:").grid(row=i+1, sticky='W', padx=15)
-			self.entries.append(Entry(metadata, textvariable=self.cats[i], width=default.metadataEntryWidth, state=DISABLED))
+			if item != "Genre":
+				self.entries.append(Entry(metadata, textvariable=self.cats[i], width=default.metadataEntryWidth, state=DISABLED))
+			else:
+				optionmenu = OptionMenu(metadata, self.cats[i], *genres.sortedGenres)
+				optionmenu.config(width=default.metadataOptionMenuWidth, state=DISABLED)
+				self.entries.append(optionmenu)
+				self.cats[i].set('')
 			self.entries[i].grid(row=i+1, column=1, columnspan=4, sticky='W')
 		
 		# adding Buttons

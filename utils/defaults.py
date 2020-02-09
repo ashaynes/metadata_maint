@@ -20,6 +20,7 @@ if os.name == "nt":
     renameWidth = 355
     renameHeight = 75
     metadataEntryWidth = 81
+    metadataOptionMenuWidth = 75
     convertBitrateWidth = 425
     convertBitrateHeight = 80
     convertWidth2 = 55
