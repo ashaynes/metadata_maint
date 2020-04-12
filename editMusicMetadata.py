@@ -1272,7 +1272,7 @@ class EditMetadata(Frame):
 
 	def analyzeGain(self):
 		'''
-		Lanuch MP3Gain
+		Launch MP3Gain
 		'''
 		launchMp3Gain = ["C:\\Program Files (x86)\\MP3Gain\\MP3GainGUI.exe"]
 		subprocess.run(launchMp3Gain)
@@ -1288,5 +1288,6 @@ if __name__ == '__main__':
 
 	# add program icon
 	progDir = sys.path[0]
+	master.resizable(0,0)
 	master.iconphoto(True, PhotoImage(file=os.path.join(progDir, 'media\\icons\\music-note-icon.png')))
 	master.mainloop()
