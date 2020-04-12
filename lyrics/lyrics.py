@@ -15,7 +15,7 @@ import re
 
 def lyrics(self):
 	'''
-	Allows user to view and edit description and/or lyrics of music file
+	Allows user to view and edit description and/or lyrics of music file --- visit https://rapidapi.com/blog/best-websites-song-lyrics/
 	'''
 	URLS = ["http://www.metrolyrics.com/{0}-lyrics-{1}.html"]
 	USLT_FOUND = False
