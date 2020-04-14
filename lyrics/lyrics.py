@@ -1,23 +1,29 @@
-from mutagen.id3 import ID3, TRCK, TCON, TPOS, TALB, TIT2, TPE1, TPE2, TDRC, APIC, USLT, TBPM, ID3NoHeaderError
-from mutagen.mp3 import MP3, HeaderNotFoundError
-from bs4 import BeautifulSoup
+import functools
+import re
 import tkinter as tk
 import tkinter.ttk
+from tkinter.messagebox import showerror, showinfo
+
 import requests
 import requests_cache
-from tkinter.messagebox import showinfo, showerror
-import functools
+from mutagen.id3 import (APIC, ID3, TALB, TBPM, TCON, TDRC, TIT2, TPE1, TPE2,
+                         TPOS, TRCK, USLT, ID3NoHeaderError)
+from mutagen.mp3 import MP3, HeaderNotFoundError
 from unidecode import unidecode
 
-import windows.customWindowSize as windowSize
+from . import scrapers
 import utils.defaults as defaults
-import re
+import windows.customWindowSize as windowSize
+
 
 def lyrics(self):
 	'''
 	Allows user to view and edit description and/or lyrics of music file --- visit https://rapidapi.com/blog/best-websites-song-lyrics/
 	'''
-	URLS = ["http://www.metrolyrics.com/{0}-lyrics-{1}.html"]
+	URLS = {
+		"Genius": "http://www.genius.com/{1}-{0}-lyrics",
+		"MetroLyrics": "http://www.metrolyrics.com/{0}-lyrics-{1}.html"
+		}
 	USLT_FOUND = False
 
 	for tags in self.song.keys():
@@ -26,25 +32,24 @@ def lyrics(self):
 			lyrics = str(self.song[tags])
 
 	if self.song['TCON'][0] != "Podcast":
-		search_artist = unidecode(self.song['TPE2'][0].replace(" ","-").lower())
-		search_song_title = unidecode(self.song['TIT2'][0].replace(" ","-").lower())
+		artist = unidecode(self.song['TPE2'][0].replace(" ","-").lower())
+		search_artist = re.sub(r'[^A-Za-z0-9\-]+', '', artist)
+
+		song_title = unidecode(self.song['TIT2'][0].replace(" ","-").lower())
+		search_song_title = re.sub(r'[^A-Za-z0-9\-]+', '', song_title)
 
 	if USLT_FOUND is False and self.song['TCON'].text[0] is not "Podcast":
-		for url in URLS:
-			completeUrl = url.format(re.sub(r'[^A-Za-z0-9\-]+', '', search_song_title), re.sub(r'[^A-Za-z0-9\-]+', '', search_artist))
+		for source in URLS:
+			completeUrl = URLS[source].format(search_song_title, search_artist)
 
 			try:
 				requests_cache.install_cache('lyrics_cache')
-				soup = BeautifulSoup(requests.get(completeUrl).content, "lxml")
-				lyrics = str()
-				verses = soup.find_all("p", {"class": "verse"})
-				for verse in verses:
-					lyrics += verse.text+"\n\n"
-				if lyrics is not "": break
+				lyrics = scrapers.scrape(source, completeUrl)
 			except requests.exceptions.ConnectionError as e:
 				showerror("Connection Error", "%s" % e)
-			else:
-				lyrics = ""
+
+			if lyrics is not "":
+				break
 	
 	self.saveLDWin = tk.Toplevel()
 	# change the heading depending on the genre type
