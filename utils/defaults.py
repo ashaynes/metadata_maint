@@ -61,3 +61,4 @@ if os.name == "posix":
     editHeight = 3
     missingMDHeight = 17
     missingMDWidth = 106
+    another = 1000
