@@ -1,39 +1,51 @@
 # usr/bin/env python3
 
-from mutagen.id3 import ID3, TRCK, TCON, TPOS, TALB, TIT2, TPE1, TPE2, TDRC, APIC, USLT, SYLT, TBPM, ID3NoHeaderError
+import functools
+import inspect
+import io
+import math
+import os
+import re
+import subprocess
+import sys
+import threading
+import time
+import tkinter.font as tkFont
+import urllib
+from tkinter import (
+    CENTER, DISABLED, END, EW, EXTENDED, NORMAL, VERTICAL, WORD, BooleanVar,
+    Button, Canvas, E, Entry, Frame, IntVar, Label, LabelFrame, Menu, N,
+    OptionMenu, PhotoImage, Radiobutton, S, Scrollbar, StringVar, TclError,
+    Text, Tk, Toplevel, W)
+from tkinter.filedialog import askdirectory
+from tkinter.messagebox import *
+from urllib.request import *
+
+import ffmpy
+import musicbrainzngs as mb
+import mutagen
+import numpy as np
+import PIL.Image
+import PIL.ImageTk
+import pygame as pg
+from bs4 import BeautifulSoup
+from mutagen.id3 import (APIC, ID3, TALB, TBPM, TCON, TDRC, TIT2, TPE1, TPE2,
+                         TPOS, TRCK, USLT, ID3NoHeaderError)
 from mutagen.mp3 import MP3, HeaderNotFoundError
-from selenium.webdriver.support import expected_conditions as EC
-from selenium.webdriver.support.ui import WebDriverWait
+from selenium import webdriver
 from selenium.common.exceptions import TimeoutException
 from selenium.webdriver.common.by import By
-from selenium import webdriver
-from tkinter.messagebox import *
-from tkinter.filedialog import *
-from bs4 import BeautifulSoup
-from PIL import Image, ImageTk
-from urllib.request import *
-import tkinter.font as tkFont
-import ffmpy
-import pygame as pg
-import numpy as np
-import subprocess
-import threading
-import functools
-import urllib
-import inspect
-import mutagen
-import time
-import math
-import sys
-import re
-import io
-import musicbrainzngs as mb
+from selenium.webdriver.support import expected_conditions as EC
+from selenium.webdriver.support.ui import WebDriverWait
 
-import audio.playbackMusicFile as playBack
-import utils.defaults as default
 import albumArt.albumArt as albumArt
+import audio.playbackMusicFile as playBack
 import lyrics.lyrics as lyrics
+import shared.genres as genres
+import utils
+import utils.defaults as default
 import windows.customWindowSize as windows
+
 
 '''
 TODO:
@@ -65,38 +77,39 @@ class EditMetadata(Frame):
 			self.mode.set("Edit Mode") if self.state.get() == True else self.mode.set("View Mode")
 			self.editFile() if self.state.get() == True else self.viewFile()
 
-		'''set initial values to certain parameters used within the program'''
+		# set initial values to certain parameters used within the program
 		if os.name == "nt":
 			os.chdir("C:\\Code\\Music Metadata Editor\\")
-			self.default = f"{os.getcwd()}\\No Image Available.jpg"
+			self.default = f"{os.getcwd()}\\media\\images\\No Image Available.jpg"
 		if os.name == "posix":
 			os.chdir('/home/alex/Music/')
 			self.default = f"{os.getcwd()}/No Image Available.jpg"
 		
+		# register client to musicBrainz
 		mb.set_useragent("MP3 Editor", "1.0", "alexbballa@hotmail.com")
 		self.paused = False
 		self.entries = []
 		self.l = ['Song Title','Artist(s)','Album','Album Artist','Genre','Year','Track Number','BPM','Disc Number']
 		self.all_music = []
 		
-		self.song_path = StringVar()
-		self.title = StringVar()
-		self.artist = StringVar()
-		self.album = StringVar()
-		self.performer = StringVar()
-		self.genre = StringVar()
-		self.date = StringVar()
-		self.tracknumber = StringVar()
-		self.bpm = StringVar()
-		self.discnumber = StringVar()
-		self.albumart = StringVar()
+		self.song_path = StringVar(master)
+		self.title = StringVar(master)
+		self.artist = StringVar(master)
+		self.album = StringVar(master)
+		self.performer = StringVar(master)
+		self.genre = StringVar(master)
+		self.date = StringVar(master)
+		self.tracknumber = StringVar(master)
+		self.bpm = StringVar(master)
+		self.discnumber = StringVar(master)
+		self.albumart = StringVar(master)
 		self.directoryStr = ""
-		self.searchStr = StringVar()
+		self.searchStr = StringVar(master)
 		# self.searchStr.trace("w", lambda var, index, mode: self.update_lb())
-		self.songCntStr = StringVar()
+		self.songCntStr = StringVar(master)
 		self.path = StringVar()
-		self.current_song_selected = StringVar()
-		self.current_song_playing = StringVar()
+		self.current_song_selected = StringVar(master)
+		self.current_song_playing = StringVar(master)
 		
 		self.musicLb_columns = ['Title', 'Artist(s)', 'Album', 'Genre', 'Time', 'Bitrate']
 		self.tags = ['TIT2', 'TPE1', 'TALB', 'TPE2', 'TCON', 'TDRC', 'TRCK', 'TBPM', 'TPOS', 'APIC', 'USLT', 'SYLT']
@@ -112,7 +125,7 @@ class EditMetadata(Frame):
 		self.menu.add_command(label="Rename File", command=self.renameFile)
 		self.menu.add_command(label="Change File Type", command=functools.partial(self.convertToMP3, 1))
 		self.menu.add_command(label="Change Bitrate", command=functools.partial(self.convertBitrate, 1))
-		self.menu.add_command(label="Update Lyrics", command=functools.partial(lyrics.lyrics, self))
+		self.menu.add_command(label="Update Lyrics/Description", command=functools.partial(lyrics.lyrics, self))
 
 		# creating top Menu bar
 		self.mastermenu = Menu(master)
@@ -128,6 +141,11 @@ class EditMetadata(Frame):
 		self.mastermenu.add_cascade(label="Directory", menu=self.editMenu, underline=0)
 		self.editMenu.add_command(label="Convert to MP3", command=self.convertToMP3)
 		self.editMenu.add_command(label="Convert Bitrate", command=self.convertBitrate)
+		# analyze MP3 options
+		self.editMenu = Menu(self.mastermenu, tearoff=0)
+		self.mastermenu.add_cascade(label="Analyze", menu=self.editMenu, underline=0)
+		self.editMenu.add_command(label="Calculate BPM", command=self.launchBpmAnalyzer)
+		self.editMenu.add_command(label="Analyze Gain", command=self.analyzeGain)
 		# metadata menu option
 		self.metaMenu = Menu(self.mastermenu, tearoff=0)
 		self.mastermenu.add_cascade(label="Metadata", menu=self.metaMenu, underline=0)
@@ -153,10 +171,17 @@ class EditMetadata(Frame):
 		# creating Label and Entry items
 		metadata = LabelFrame(master, text='Metadata')
 		metadata.grid(columnspan=3, sticky=W, padx=10, ipadx=2)
+		# change TCON from Entry to OptionMenu
 		for item in self.l:
 			i = self.l.index(item)
 			Label(metadata, text=f"{item}:").grid(row=i+1, sticky='W', padx=15)
-			self.entries.append(Entry(metadata, textvariable=self.cats[i], width=default.metadataEntryWidth, state=DISABLED))
+			if item != "Genre":
+				self.entries.append(Entry(metadata, textvariable=self.cats[i], width=default.metadataEntryWidth, state=DISABLED))
+			else:
+				optionmenu = OptionMenu(metadata, self.cats[i], *genres.sortedGenres)
+				optionmenu.config(width=default.metadataOptionMenuWidth, state=DISABLED)
+				self.entries.append(optionmenu)
+				self.cats[i].set('')
 			self.entries[i].grid(row=i+1, column=1, columnspan=4, sticky='W')
 		
 		# adding Buttons
@@ -174,9 +199,9 @@ class EditMetadata(Frame):
 		# creating empty Canvas for media player (album art place holder)
 		self.player = LabelFrame(master, text='Media Player')
 		self.player.grid(row=1, column=3, sticky='WE')
-		self.original = Image.open(self.default)
-		self.resized = self.original.resize((194,194), Image.ANTIALIAS)
-		self.albumart = ImageTk.PhotoImage(self.resized)
+		self.original = PIL.Image.open(self.default)
+		self.resized = self.original.resize((194,194), PIL.Image.ANTIALIAS)
+		self.albumart = PIL.ImageTk.PhotoImage(self.resized)
 		self.canvas = Canvas(self.player, width=194, height=194)
 		self.canvas_image = self.canvas.create_image(97, 97, image=self.albumart)
 		self.canvas.grid(row=1, rowspan=3, padx=49, columnspan=3, sticky='NSEW')
@@ -336,10 +361,9 @@ class EditMetadata(Frame):
 			self.remove = []
 			apicFound = [key for key in self.song.keys() if "APIC" in key]
 			usltFound = [key for key in self.song.keys() if "USLT" in key]
-			syltFound = [key for key in self.song.keys() if "SYLT" in key]
 			
 			for t in self.song.keys():
-				if t in apicFound or t in usltFound or t in syltFound:
+				if t in apicFound or t in usltFound:
 					continue
 				if t not in self.tags:
 					self.remove.append(t)
@@ -360,8 +384,7 @@ class EditMetadata(Frame):
 		
 			# print whatever contents are in the tags in the .mp3 file
 			for k in self.song.keys():
-				if "APIC" in k or "USLT" in k or "SYLT" in k:
-					continue
+				if "APIC" in k or "USLT" in k: continue
 				self.cats[self.tags.index(k)].set(self.song[k][0]) if k not in self.remove else next
 				
 			# update self.getAlbumArt Label, depending on whether APIC tag is in MP3
@@ -392,7 +415,7 @@ class EditMetadata(Frame):
 					
 			# determine when "Search Missing Metadata" option is available for selection in Metadata menu
 			# should only be available when there is at least one metadata field (self.cats) that is empty (legit)
-			tempList=self.tags[:-2]
+			tempList=self.tags[:-3]
 			self.metaMenu.entryconfig("Search Missing Metadata", state=NORMAL) if any(len(self.cats[self.tags.index(t)].get())==0 for t in tempList) \
 				else self.metaMenu.entryconfig("Search Missing Metadata", state=DISABLED)
 			
@@ -401,12 +424,12 @@ class EditMetadata(Frame):
 			self.edit.config(state=NORMAL)
 
 			# display album art on file else display default art
-			self.albumArt = Image.open(self.default)			# display default album art (No Image Available)
+			self.albumArt = PIL.Image.open(self.default)			# display default album art (No Image Available)
 			try:
 				for tag in self.song.keys():
 					if "APIC" in tag:
 						imageData = self.song[tag].data
-						self.albumArt = Image.open(io.BytesIO(imageData))		# display album art found if art is embedded to mp3
+						self.albumArt = PIL.Image.open(io.BytesIO(imageData))		# display album art found if art is embedded to mp3
 						break
 
 			except Exception as e:
@@ -414,9 +437,9 @@ class EditMetadata(Frame):
 					self.song.pop(tag)
 					self.song.save()
 		
-			resized = self.albumArt.resize((194, 194), Image.ANTIALIAS)
+			resized = self.albumArt.resize((194, 194), PIL.Image.ANTIALIAS)
 			# resized.show()
-			self.albumImage = ImageTk.PhotoImage(resized)
+			self.albumImage = PIL.ImageTk.PhotoImage(resized)
 			self.canvas.itemconfigure(self.canvas_image, image=self.albumImage)
 		# do this if header is missing
 		except HeaderNotFoundError:
@@ -532,6 +555,7 @@ class EditMetadata(Frame):
 		try:
 			if deleteFileResult == True:
 				result = subprocess.check_output(['cmd','/c','del', self.value['text']])
+				print (result)
 				if True not in [self.value['text'] in song for song in os.listdir()]:
 					showinfo("Deleted File", f"Successfully deleted \'{self.value['text']}\'!")
 					self.getMusic()
@@ -634,9 +658,9 @@ class EditMetadata(Frame):
 		'''
 		
 		# clearing any album art (set to default)
-		self.art = Image.open(self.default)
-		resized = self.art.resize((194, 194), Image.ANTIALIAS)
-		self.artImage = ImageTk.PhotoImage(resized)
+		self.art = PIL.Image.open(self.default)
+		resized = self.art.resize((194, 194), PIL.Image.ANTIALIAS)
+		self.artImage = PIL.ImageTk.PhotoImage(resized)
 		self.canvas.itemconfigure(self.canvas_image, image=self.artImage)
 			
 		size = length = 0
@@ -648,17 +672,17 @@ class EditMetadata(Frame):
 			self.cats[c].set("")
 
 		# run the podcast scripts to do initial edits on the filenames and the metadata
-		if "Sex With Emily" in os.getcwd():
-			self.songCntStr.set("Editing recently downloaded \'Sex With Emily\' podcasts...")
-			master.config(cursor="watch")
-			master.update()
-			fix_SexWithEmilyPodcasts.fixPodcasts()
+		# if "Sex With Emily" in os.getcwd():
+		# 	self.songCntStr.set("Editing recently downloaded \'Sex With Emily\' podcasts...")
+		# 	master.config(cursor="watch")
+		# 	master.update()
+		# 	utils.fix_SexWithEmilyPodcasts.fixPodcasts()
 		
-		if "Sword and Scale" in os.getcwd():
-			self.songCntStr.set("Editing recently downloaded \'Sword and Scale\' podcasts...")
-			master.config(cursor="watch")
-			master.update()
-			fix_SwordAndScalePodcasts.fixPodcasts()
+		# if "Sword and Scale" in os.getcwd():
+		# 	self.songCntStr.set("Editing recently downloaded \'Sword and Scale\' podcasts...")
+		# 	master.config(cursor="watch")
+		# 	master.update()
+		# 	utils.fix_SwordAndScalePodcasts.fixPodcasts()
 		
 		self.songCntStr.set("Performing calculations...")
 		master.config(cursor="watch")
@@ -671,11 +695,13 @@ class EditMetadata(Frame):
 		self.missingMetadata = []
 		self.corruptMP3 = []
 		self.not128kBitrate = []
+		self.not64kBitrate = []
 		self.all_music.clear()
 		
 		music_formats = ['mp3','m4a','wav']
 		music = [fn for fn in os.listdir() if fn[-3:] in music_formats]
-			
+		
+		print (f"Songs: {len(music)}")
 		for fn in music:
 			if "mp3" not in fn:
 				self.songCntStr.set(f"Converting {fn} to MP3...")
@@ -692,23 +718,28 @@ class EditMetadata(Frame):
 				s = MP3(fn)
 				self.all_music.append([fn, s['TIT2'][0], s['TPE1'][0], s['TALB'][0], s['TCON'][0], ('{0:02}:{1:02}:{2:02}').format(
 					int(s.info.length % 86400) // 3600, int(s.info.length % 3600) // 60, int(s.info.length % 60)), int(s.info.bitrate / 1000)])
+
 				size += os.stat(fn).st_size
 				length += s.info.length
+
+				if s['TCON'][0] != "Podcast" and int(s.info.bitrate / 1000) != 128:
+					self.not128kBitrate.append(fn)
+				if s['TCON'][0] == "Podcast" and int(s.info.bitrate / 1000) != 64:
+					self.not64kBitrate.append(fn)
+
 			except KeyError as e:
 				self.missingMetadata.append(fn)
 				self.all_music.append([fn, fn, " ", " ", " ", ('{0:02}:{1:02}:{2:02}').format(
 					int(s.info.length % 86400) // 3600, int(s.info.length % 3600) // 60, int(s.info.length % 60)), int(s.info.bitrate / 1000)])
 				size += os.stat(fn).st_size
 				length += s.info.length
+				self.songCntStr.set(f"ERROR!! {e}")
 			except HeaderNotFoundError as e:
 				if fn[-4:] == ".wma":
 					showerror("WMA Conversion Attempt","Aborting conversion! Possible DRM protection.")
 				else:
 					self.recreateMP3File(fn)
-
-					# s = MP3(fn)
-					# if int(s.info.bitrate / 1000) != 128:
-					# 	self.not128kBitrate.append(fn)
+				self.songCntStr.set(f"ERROR!! {e}")
 
 		# get size of entire directory and convert total time of all songs
 		convertedSize, convertedTime = self.conversion(size, length)
@@ -764,7 +795,7 @@ class EditMetadata(Frame):
 					self.metaMenu.entryconfig(2, state=NORMAL)
 
 	def searchMetadata(self):
-		'''extr
+		'''
 		Search for missing metadata via the Internet - using MusicBrainz API
 		'''
 		metaWin = Toplevel()
@@ -1015,7 +1046,7 @@ class EditMetadata(Frame):
 					for t in song.keys():
 						temp[t] = song[t]
 				
-					ff = ffmpy.FFmpeg(inputs={songFile: None}, outputs={f"new_{songFile}": '-ab 128k'})
+					ff = ffmpy.FFmpeg(inputs={songFile: None}, outputs={f"new_{songTitle}": '-ab 128k'})
 					ff.run()
 					
 					os.remove(f"{self.dname}\\{songTitle}")
@@ -1030,7 +1061,7 @@ class EditMetadata(Frame):
 		convertMP3_Columns = ['Title', 'File Type']
 		FILETYPES = [
 		('.mp3', 'mp3'),
-		('.mp4', 'mp4'),
+		('.m4a', 'm4a'),
 		('.avi', 'avi'),
 		('.wav', 'wav')]
 
@@ -1195,13 +1226,29 @@ class EditMetadata(Frame):
 			bitrateLb.grid(row=3, sticky=N+S)
 			vsb.grid(row=3, column=6, sticky=N+S+W)
 		
+			genre128k = []
+			genre64k = []
 			for f in self.not128kBitrate:
-				try:
-					bitrateLb.insert("", END, values=(f, round(MP3(f).info.bitrate/1000),2))
-				except HeaderNotFoundError:
-					# self.recreateMP3File(f)
-					# bitrateLb.insert("", END, values=(f, round(MP3(f).info.bitrate/1000),2))
-					continue
+				genre128k.append(MP3(f)['TCON'].text[0])
+			for f in self.not64kBitrate:
+				genre64k.append(MP3(f)['TCON'].text[0])
+
+			# if set(self.not128kBitrate) <= set(os.listdir()) and all(genre != "Podcast" for genre in genre128k):
+			# 	for f in self.not128kBitrate:
+			# 		try:
+			# 			bitrateLb.insert("", END, values=(f, round(MP3(f).info.bitrate/1000),2))
+			# 		except HeaderNotFoundError:
+			# 			# self.recreateMP3File(f)
+			# 			# bitrateLb.insert("", END, values=(f, round(MP3(f).info.bitrate/1000),2))
+			# 			continue
+			if set(self.not64kBitrate) <= set(os.listdir()) and all(genre == "Podcast" for genre in genre64k):
+				for f in self.not64kBitrate:
+					try:
+						bitrateLb.insert("", END, values=(f, round(MP3(f).info.bitrate/1000),2))
+					except HeaderNotFoundError:
+						# self.recreateMP3File(f)
+						# bitrateLb.insert("", END, values=(f, round(MP3(f).info.bitrate/1000),2))
+						continue
 		# create radio buttons
 		for text, rate in BITRATES:
 			radioBtn = Radiobutton(self.bitrate, text=text, variable=bitrate, value=rate)
@@ -1215,6 +1262,22 @@ class EditMetadata(Frame):
 		cancelBtn = Button(self.bitrate, text="Cancel", command=closeWin)
 		cancelBtn.grid(column=3, columnspan=3, row=4, pady=5, padx=5, sticky=E+W)
 
+	def launchBpmAnalyzer(self):
+		'''
+		Launch MixMeister BPM Analyzer
+		'''
+		launchBpm = ["C:\\Program Files (x86)\\MixMeister BPM Analyzer\\BpmAnalyzer.exe"]
+		subprocess.run(launchBpm)
+		self.getMusic()
+
+	def analyzeGain(self):
+		'''
+		Launch MP3Gain
+		'''
+		launchMp3Gain = ["C:\\Program Files (x86)\\MP3Gain\\MP3GainGUI.exe"]
+		subprocess.run(launchMp3Gain)
+		self.getMusic()
+
 if __name__ == '__main__':
 	import tkinter
 	import tkinter.ttk as ttk
@@ -1225,5 +1288,6 @@ if __name__ == '__main__':
 
 	# add program icon
 	progDir = sys.path[0]
-	master.iconphoto(True, PhotoImage(file=os.path.join(progDir, 'music-note-icon.png')))
+	master.resizable(0,0)
+	master.iconphoto(True, PhotoImage(file=os.path.join(progDir, 'media\\icons\\music-note-icon.png')))
 	master.mainloop()

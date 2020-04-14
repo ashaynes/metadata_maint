@@ -1,19 +1,23 @@
-import os
 import inspect
-from PIL import Image, ImageTk
-from mutagen.id3 import ID3, TRCK, TCON, TPOS, TALB, TIT2, TPE1, TPE2, TDRC, APIC, COMM, USLT, TBPM, ID3NoHeaderError
-from mutagen.mp3 import MP3, HeaderNotFoundError
-from tkinter.messagebox import showinfo
-import musicbrainzngs as mb
-from collections import defaultdict
-from unidecode import unidecode
+import os
 import re
-import tkinter as tk
 import sqlite3 as sq
-# import blowfish
+import tkinter as tk
+from collections import defaultdict
+from tkinter.messagebox import showinfo
 
-import windows.customWindowSize as windowSize
+import musicbrainzngs as mb
+import numpy as np
+from mutagen.id3 import (APIC, COMM, ID3, TALB, TBPM, TCON, TDRC, TIT2, TPE1,
+                         TPE2, TPOS, TRCK, USLT, ID3NoHeaderError)
+from mutagen.mp3 import MP3, HeaderNotFoundError
+from PIL import Image, ImageTk
+from skimage.util.shape import view_as_blocks
+from unidecode import unidecode
+
+import utils
 import utils.defaults as defaults
+import windows.customWindowSize as windowSize
 
 IMAGE_PATH = "C:\\Users\\Alex\\Pictures\\Downloaded Album Art\\"
 count = 0
@@ -25,30 +29,88 @@ def addArt(self):
     '''
     if os.path.exists(f'{IMAGE_PATH}\\temp'):
         os.chdir(f'{IMAGE_PATH}\\temp')
-        if len(os.listdir()) > 1:
-            showinfo("More Than One Image Downloaded", "More than one image was downloaded for the selected album. Please select your preferred album cover to be saved.")
-    elif len(os.listdir()) == 1:
-        # rename image / remove "_[count]" from file name and move to main folder, create APIC and add to MP3
-        f = os.listdir()[0]
-        f_rename = re.sub(r'_\d+', '', f)
-        os.replace(f, f"{IMAGE_PATH}\\{f_rename}")
+
+        if len(os.listdir()) != 0:
+            if len(os.listdir()) > 1:
+                # TODO: create a new window that displays multiple album covers and allows the user to select which one (ONLY!)
+                # they want to keep. The selected album cover is formated and moved to the main album cover directory and
+                # the others are removed from the temp directory
+                # Better yet, get rid of the entire temp directory. Just hold the byte array in memory then dispose based on what the user
+                # selects or if just one image is found, store that directly to the MP3 then POOF! be gone
+                showinfo("More Than One Image Downloaded", "More than one image was downloaded for the selected album. Please select your preferred album cover to be saved.")
+
+                # self.downloadAlbumArtWindow = tk.Toplevel()
+                # self.downloadAlbumArtWindow.title = "Downloaded Album Art"
+                # pos = windowSize.centerWindow(self.downloadAlbumArtWindow, defaults.downloadAlbumArtWidth, defaults.downloadAlbumArtHeight)
+                # self.downloadAlbumArtWindow.geometry('%dx%d+%d+%d' % (pos[0], pos[1], pos[2], pos[3]))
+
+                # A = np.arrange(4*4).reshape(4,4)
+            elif len(os.listdir()) == 1:
+                # rename image / remove "_[count]" from file name and move to main folder, create APIC and add to MP3
+                f = os.listdir()[0]
+                f_rename = re.sub(r'_\d+', '', f)
+                os.replace(f, f"{IMAGE_PATH}\\{f_rename}")
+                
+                self.songCntStr.set(f"Adding album art to '{self.song['TIT2'][0]}'...")
+                
+                try:
+                    image_path = "{0}{1} ({2}).jpg".format(IMAGE_PATH, self.song['TALB'][0], self.song['TPE2'][0])
+                    image_album = self.song['TALB'][0]
+                    image_artist = self.song['TPE2'][0]
+                    
+                    # resize the album art if not 250x250 px
+                    with Image.open(image_path) as i:
+                        height, width = i.size
+                    if height != 250 and width != 250:
+                        resizeArt(image_path)
+
+                    with open(image_path, "rb") as image:
+                        file_image = image.read()
+                        imageBytes = bytes(bytearray(file_image))
+                    
+                    for song in self.all_music:
+                        thisSong = MP3(self.dname + "\\" + song[0])
+                        TALB_found = [key.find("TALB") for key in thisSong.keys()]
+                        TPE2_found = [key.find("TPE2") for key in thisSong.keys()]
+                        APIC_found = [key.find("APIC") for key in thisSong.keys()]
+                        
+                        # do nothing if the APIC already exists in the MP3 and the JPEGs match
+                        if 0 in APIC_found:
+                            for tag in thisSong.keys():
+                                if "APIC" in tag:
+                                    key = tag
+                                    currentAPIC = thisSong[key].data
+                                    if currentAPIC == imageBytes:
+                                        break
+                        # add the JPEG to APIC if there is no APIC tag in the MP3 and the album and artist names match
+                        else:
+                            if 0 in TALB_found and 0 in TPE2_found:
+                                if thisSong['TALB'][0] == image_album and thisSong['TPE2'][0] == image_artist:
+                                    thisSong['APIC'] = APIC(encoding=3, mime=u'image/jpeg', type=3, desc=thisSong['TALB'][0],
+                                                            data=imageBytes)
+                                    thisSong.save()
+                
+                except Exception as e:
+                    showinfo("Error", f"{inspect.currentframe().f_code.co_name} - {e}")
         
-        self.songCntStr.set(f"Adding album art to '{self.song['TIT2'][0]}'...")
-        
+    os.chdir(f'{IMAGE_PATH}')
+    if len(os.listdir()) > 0:
         try:
-            image_path = "{0}{1} ({2}).jpg".format(IMAGE_PATH, self.song['TALB'][0], self.song['TPE2'][0])
             image_album = self.song['TALB'][0]
             image_artist = self.song['TPE2'][0]
+            image_path = "{0}{1} ({2}).jpg".format(
+                IMAGE_PATH, 
+                image_album, 
+                image_artist)
             
-            # resize the album art if not 250x250 px
             with Image.open(image_path) as i:
-                height, width = i.size
+                width, height = i.size
             if height is not 250 and width is not 250:
                 resizeArt(image_path)
 
             with open(image_path, "rb") as image:
-                file_image = image.read()
-                imageBytes = bytes(bytearray(file_image))
+                f = image.read()
+                imageBytes = bytes(bytearray(f))
             
             for song in self.all_music:
                 thisSong = MP3(self.dname + "\\" + song[0])
@@ -76,17 +138,12 @@ def addArt(self):
             showinfo("Error", f"{inspect.currentframe().f_code.co_name} - {e}")
     else:
         os.chdir(f'{IMAGE_PATH}')
-        if len(os.listdir()) > 1:
+        if len(os.listdir()) > 0:
             try:
-                image_path = "{0}{1} ({2}).jpg".format(IMAGE_PATH, self.song['TALB'][0], self.song['TPE2'][0])
+                image_path = "{0}{1} ({2}).jpg".format(IMAGE_PATH, re.sub(r'\/', '-', self.song['TALB'][0]), re.sub(r'\/', '-', self.song['TPE2'][0]))
                 image_album = image_path.split("\\")[-1].rsplit(" (", maxsplit=1)[0]
                 image_artist = image_path.split("\\")[-1].rsplit(" (", maxsplit=1)[-1].replace(").jpg", "")
                 
-                with Image.open(image_path) as i:
-                    width, height = i.size
-                if height is not 250 and width is not 250:
-                    resizeArt(image_path)
-
                 with open(image_path, "rb") as image:
                     f = image.read()
                     imageBytes = bytes(bytearray(f))
@@ -114,7 +171,7 @@ def addArt(self):
                                 thisSong.save()
             
             except Exception as e:
-                showinfo("Error", f"{inspect.currentframe().f_code.co_name} - {e}")
+                showinfo("Error", f"{e.traceback.print_exc(limit=None, file=None, chain=True)}")
         else:
             showinfo("No Album Art Downloaded", "Sorry! No album art was downloaded for the selected album :(")
     self.getMusic()
@@ -156,10 +213,10 @@ def downloadArt(self):
             self.songCntStr.set(f"Error downloading cover art: {e}")
             count += 1
         else:
-            with open(f"temp\\{self.song['TALB'][0]} ({self.song['TPE2'][0]})_{count}.jpg", "wb") as image:
+            with open(fr"temp\{self.song['TALB'][0]} ({self.song['TPE2'][0]})_{count}.jpg", "wb") as image:
                 image.write(i)
 
-            self.songCntStr.set(f"Downloaded album cover \'{self.song['TALB'][0]} ({self.song['TPE2'][0]})_{count}.jpg\'...")
+            self.songCntStr.set(fr"Downloaded album cover '{self.song['TALB'][0]} ({self.song['TPE2'][0]})_{count}.jpg'...")
             count += 1
 
         # create a new window that would display each album cover that was downloaded for the user to choose which
