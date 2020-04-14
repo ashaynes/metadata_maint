@@ -1,41 +1,51 @@
 # usr/bin/env python3
 
-from mutagen.id3 import ID3, TRCK, TCON, TPOS, TALB, TIT2, TPE1, TPE2, TDRC, APIC, USLT, TBPM, ID3NoHeaderError
-from mutagen.mp3 import MP3, HeaderNotFoundError
-from selenium.webdriver.support import expected_conditions as EC
-from selenium.webdriver.support.ui import WebDriverWait
-from selenium.common.exceptions import TimeoutException
-from selenium.webdriver.common.by import By
-from selenium import webdriver
-from tkinter.messagebox import *
-from tkinter.filedialog import *
-from bs4 import BeautifulSoup
+import functools
+import inspect
+import io
+import math
+import os
+import re
+import subprocess
+import sys
+import threading
+import time
 import tkinter.font as tkFont
+import urllib
+from tkinter import (
+    CENTER, DISABLED, END, EW, EXTENDED, NORMAL, VERTICAL, WORD, BooleanVar,
+    Button, Canvas, E, Entry, Frame, IntVar, Label, LabelFrame, Menu, N,
+    OptionMenu, PhotoImage, Radiobutton, S, Scrollbar, StringVar, TclError,
+    Text, Tk, Toplevel, W)
+from tkinter.filedialog import askdirectory
+from tkinter.messagebox import *
+from urllib.request import *
+
 import ffmpy
+import musicbrainzngs as mb
+import mutagen
+import numpy as np
 import PIL.Image
 import PIL.ImageTk
 import pygame as pg
-import numpy as np
-import subprocess
-import threading
-import functools
-import urllib
-from urllib.request import *
-import inspect
-import mutagen
-import time
-import math
-import sys
-import re
-import io
-import musicbrainzngs as mb
+from bs4 import BeautifulSoup
+from mutagen.id3 import (APIC, ID3, TALB, TBPM, TCON, TDRC, TIT2, TPE1, TPE2,
+                         TPOS, TRCK, USLT, ID3NoHeaderError)
+from mutagen.mp3 import MP3, HeaderNotFoundError
+from selenium import webdriver
+from selenium.common.exceptions import TimeoutException
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support import expected_conditions as EC
+from selenium.webdriver.support.ui import WebDriverWait
 
-import audio.playbackMusicFile as playBack
-import utils as utils
-import utils.defaults as default
 import albumArt.albumArt as albumArt
+import audio.playbackMusicFile as playBack
 import lyrics.lyrics as lyrics
+import shared.genres as genres
+import utils
+import utils.defaults as default
 import windows.customWindowSize as windows
+
 
 '''
 TODO:
@@ -67,7 +77,7 @@ class EditMetadata(Frame):
 			self.mode.set("Edit Mode") if self.state.get() == True else self.mode.set("View Mode")
 			self.editFile() if self.state.get() == True else self.viewFile()
 
-		'''set initial values to certain parameters used within the program'''
+		# set initial values to certain parameters used within the program
 		if os.name == "nt":
 			os.chdir("C:\\Code\\Music Metadata Editor\\")
 			self.default = f"{os.getcwd()}\\media\\images\\No Image Available.jpg"
@@ -75,30 +85,31 @@ class EditMetadata(Frame):
 			os.chdir('/home/alex/Music/')
 			self.default = f"{os.getcwd()}/No Image Available.jpg"
 		
+		# register client to musicBrainz
 		mb.set_useragent("MP3 Editor", "1.0", "alexbballa@hotmail.com")
 		self.paused = False
 		self.entries = []
 		self.l = ['Song Title','Artist(s)','Album','Album Artist','Genre','Year','Track Number','BPM','Disc Number']
 		self.all_music = []
 		
-		self.song_path = StringVar()
-		self.title = StringVar()
-		self.artist = StringVar()
-		self.album = StringVar()
-		self.performer = StringVar()
-		self.genre = StringVar()
-		self.date = StringVar()
-		self.tracknumber = StringVar()
-		self.bpm = StringVar()
-		self.discnumber = StringVar()
-		self.albumart = StringVar()
+		self.song_path = StringVar(master)
+		self.title = StringVar(master)
+		self.artist = StringVar(master)
+		self.album = StringVar(master)
+		self.performer = StringVar(master)
+		self.genre = StringVar(master)
+		self.date = StringVar(master)
+		self.tracknumber = StringVar(master)
+		self.bpm = StringVar(master)
+		self.discnumber = StringVar(master)
+		self.albumart = StringVar(master)
 		self.directoryStr = ""
-		self.searchStr = StringVar()
+		self.searchStr = StringVar(master)
 		# self.searchStr.trace("w", lambda var, index, mode: self.update_lb())
-		self.songCntStr = StringVar()
+		self.songCntStr = StringVar(master)
 		self.path = StringVar()
-		self.current_song_selected = StringVar()
-		self.current_song_playing = StringVar()
+		self.current_song_selected = StringVar(master)
+		self.current_song_playing = StringVar(master)
 		
 		self.musicLb_columns = ['Title', 'Artist(s)', 'Album', 'Genre', 'Time', 'Bitrate']
 		self.tags = ['TIT2', 'TPE1', 'TALB', 'TPE2', 'TCON', 'TDRC', 'TRCK', 'TBPM', 'TPOS', 'APIC', 'USLT', 'SYLT']
@@ -130,6 +141,11 @@ class EditMetadata(Frame):
 		self.mastermenu.add_cascade(label="Directory", menu=self.editMenu, underline=0)
 		self.editMenu.add_command(label="Convert to MP3", command=self.convertToMP3)
 		self.editMenu.add_command(label="Convert Bitrate", command=self.convertBitrate)
+		# analyze MP3 options
+		self.editMenu = Menu(self.mastermenu, tearoff=0)
+		self.mastermenu.add_cascade(label="Analyze", menu=self.editMenu, underline=0)
+		self.editMenu.add_command(label="Calculate BPM", command=self.launchBpmAnalyzer)
+		self.editMenu.add_command(label="Analyze Gain", command=self.analyzeGain)
 		# metadata menu option
 		self.metaMenu = Menu(self.mastermenu, tearoff=0)
 		self.mastermenu.add_cascade(label="Metadata", menu=self.metaMenu, underline=0)
@@ -155,10 +171,17 @@ class EditMetadata(Frame):
 		# creating Label and Entry items
 		metadata = LabelFrame(master, text='Metadata')
 		metadata.grid(columnspan=3, sticky=W, padx=10, ipadx=2)
+		# change TCON from Entry to OptionMenu
 		for item in self.l:
 			i = self.l.index(item)
 			Label(metadata, text=f"{item}:").grid(row=i+1, sticky='W', padx=15)
-			self.entries.append(Entry(metadata, textvariable=self.cats[i], width=default.metadataEntryWidth, state=DISABLED))
+			if item != "Genre":
+				self.entries.append(Entry(metadata, textvariable=self.cats[i], width=default.metadataEntryWidth, state=DISABLED))
+			else:
+				optionmenu = OptionMenu(metadata, self.cats[i], *genres.sortedGenres)
+				optionmenu.config(width=default.metadataOptionMenuWidth, state=DISABLED)
+				self.entries.append(optionmenu)
+				self.cats[i].set('')
 			self.entries[i].grid(row=i+1, column=1, columnspan=4, sticky='W')
 		
 		# adding Buttons
@@ -532,6 +555,7 @@ class EditMetadata(Frame):
 		try:
 			if deleteFileResult == True:
 				result = subprocess.check_output(['cmd','/c','del', self.value['text']])
+				print (result)
 				if True not in [self.value['text'] in song for song in os.listdir()]:
 					showinfo("Deleted File", f"Successfully deleted \'{self.value['text']}\'!")
 					self.getMusic()
@@ -1022,7 +1046,7 @@ class EditMetadata(Frame):
 					for t in song.keys():
 						temp[t] = song[t]
 				
-					ff = ffmpy.FFmpeg(inputs={songFile: None}, outputs={f"new_{songFile}": '-ab 128k'})
+					ff = ffmpy.FFmpeg(inputs={songFile: None}, outputs={f"new_{songTitle}": '-ab 128k'})
 					ff.run()
 					
 					os.remove(f"{self.dname}\\{songTitle}")
@@ -1037,7 +1061,7 @@ class EditMetadata(Frame):
 		convertMP3_Columns = ['Title', 'File Type']
 		FILETYPES = [
 		('.mp3', 'mp3'),
-		('.mp4', 'mp4'),
+		('.m4a', 'm4a'),
 		('.avi', 'avi'),
 		('.wav', 'wav')]
 
@@ -1238,6 +1262,22 @@ class EditMetadata(Frame):
 		cancelBtn = Button(self.bitrate, text="Cancel", command=closeWin)
 		cancelBtn.grid(column=3, columnspan=3, row=4, pady=5, padx=5, sticky=E+W)
 
+	def launchBpmAnalyzer(self):
+		'''
+		Launch MixMeister BPM Analyzer
+		'''
+		launchBpm = ["C:\\Program Files (x86)\\MixMeister BPM Analyzer\\BpmAnalyzer.exe"]
+		subprocess.run(launchBpm)
+		self.getMusic()
+
+	def analyzeGain(self):
+		'''
+		Launch MP3Gain
+		'''
+		launchMp3Gain = ["C:\\Program Files (x86)\\MP3Gain\\MP3GainGUI.exe"]
+		subprocess.run(launchMp3Gain)
+		self.getMusic()
+
 if __name__ == '__main__':
 	import tkinter
 	import tkinter.ttk as ttk
@@ -1248,5 +1288,6 @@ if __name__ == '__main__':
 
 	# add program icon
 	progDir = sys.path[0]
-	master.iconphoto(True, PhotoImage(file=os.path.join(progDir, 'media\icons\music-note-icon.png')))
+	master.resizable(0,0)
+	master.iconphoto(True, PhotoImage(file=os.path.join(progDir, 'media\\icons\\music-note-icon.png')))
 	master.mainloop()

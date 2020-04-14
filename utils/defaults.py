@@ -1,10 +1,9 @@
-###############################################################################
-# defaults.py
-# -----------------------------------------------------------------------------
-# Stores all of the default GUI settings depending on the environment it is
-# being launched
-###############################################################################
-
+'''
+defaults.py
+-----------------------------------------------------------------------------
+Stores all of the default GUI settings depending on the environment it is
+being launched
+'''
 import os
 
 if os.name == "nt":
@@ -21,6 +20,7 @@ if os.name == "nt":
     renameWidth = 355
     renameHeight = 75
     metadataEntryWidth = 81
+    metadataOptionMenuWidth = 75
     convertBitrateWidth = 425
     convertBitrateHeight = 80
     convertWidth2 = 55
