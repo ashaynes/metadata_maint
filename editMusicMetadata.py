@@ -18,7 +18,7 @@ from tkinter import (
     OptionMenu, PhotoImage, Radiobutton, S, Scrollbar, StringVar, TclError,
     Text, Tk, Toplevel, W)
 from tkinter.filedialog import askdirectory
-from tkinter.messagebox import *
+from tkinter.messagebox import askyesno, showerror, showinfo, askokcancel
 from urllib.request import *
 
 import ffmpy
@@ -46,12 +46,13 @@ import utils
 import utils.defaults as default
 import windows.customWindowSize as windows
 
-
 '''
 TODO:
 1 -> Create 'displayInfo' function for Search options to display metadata on double-click, differentiate between artist, album and song (WIP)
 2 -> Create function that allows an online search of MP3s to download and downloads the selected song to the default directory ??
 3 -> Create function that downloads a top 40 list, based on genre selected (BillboardAPI)
+4 -> Import JSON or CSV file to create a playlist with MP3s found on the system
+5 -> Create a playlist directly from the UI (seems easy)
 ''' 
 
 class mdict(dict):
@@ -80,7 +81,7 @@ class EditMetadata(Frame):
 		# set initial values to certain parameters used within the program
 		if os.name == "nt":
 			os.chdir("C:\\Code\\Music Metadata Editor\\")
-			self.default = f"{os.getcwd()}\\media\\images\\No Image Available.jpg"
+			self.default = f"{os.getcwd()}\\media\\images\\no-cover-art.jpg"
 		if os.name == "posix":
 			os.chdir('/home/alex/Music/')
 			self.default = f"{os.getcwd()}/No Image Available.jpg"
@@ -345,7 +346,7 @@ class EditMetadata(Frame):
 		self.play.config(state=NORMAL)
 		self.stop.config(state=DISABLED)
 		
-		if os.getcwd() is not self.dname:
+		if os.getcwd() != self.dname:
 			os.chdir(self.dname)
 		
 		if os.name == "posix":
@@ -585,7 +586,7 @@ class EditMetadata(Frame):
 					else:
 						self.songCntStr.set(f"Error Copying File: {results}")
 				except (subprocess.CalledProcessError, OSError, IOError) as cpe:
-					showerror("Error Copying File", f"{cpe}\n{cpe.output1}")
+					showerror("Error Copying File", f"{cpe}\n{cpe.output}")
 			except Exception as e:
 				self.songCntStr.set(f"There was an error copying {copy_from.get()}! Please try again.")
 				showerror("Error Copying File", f"{str(e)}")
@@ -706,13 +707,13 @@ class EditMetadata(Frame):
 			if "mp3" not in fn:
 				self.songCntStr.set(f"Converting {fn} to MP3...")
 				master.update()
-				new_fn = f"{fn[:-4]}.mp3"
-				ff = ffmpy.FFmpeg(inputs={fn: None}, outputs={f"new_{new_fn}": '-y -ac 2 -ar 44100 -ab 128k'})
-				ff.run()
+				new_fn = f"new_{fn[:-4]}.mp3"
+				args_list = ["ffmpeg", "-i", fn, "-y", "-ac", "2", "-ar", "44100", "-ab", "128k", new_fn]
+				subprocess.run(args_list)
 				
 				self.songCntStr.set("Performing calculations...")
 				master.update()
-				os.replace(f"new_{new_fn}", fn)
+				os.replace(new_fn, fn)
 
 			try:
 				s = MP3(fn)

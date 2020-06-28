@@ -2,7 +2,7 @@ import functools
 import re
 import tkinter as tk
 import tkinter.ttk
-from tkinter.messagebox import showerror, showinfo
+from tkinter.messagebox import showerror, showinfo, askyesno
 
 import requests
 import requests_cache
@@ -12,7 +12,7 @@ from mutagen.mp3 import MP3, HeaderNotFoundError
 from unidecode import unidecode
 
 from . import scrapers
-import utils.defaults as defaults
+from utils import defaults
 import windows.customWindowSize as windowSize
 
 
@@ -38,7 +38,7 @@ def lyrics(self):
 		song_title = unidecode(self.song['TIT2'][0].replace(" ","-").lower())
 		search_song_title = re.sub(r'[^A-Za-z0-9\-]+', '', song_title)
 
-	if USLT_FOUND is False and self.song['TCON'].text[0] is not "Podcast":
+	if USLT_FOUND is False and self.song['TCON'].text[0] != "Podcast":
 		for source in URLS:
 			completeUrl = URLS[source].format(search_song_title, search_artist)
 
@@ -48,14 +48,14 @@ def lyrics(self):
 			except requests.exceptions.ConnectionError as e:
 				showerror("Connection Error", "%s" % e)
 
-			if lyrics is not "":
+			if lyrics != "":
 				break
 	
 	self.saveLDWin = tk.Toplevel()
 	# change the heading depending on the genre type
 	song_title = self.song['TIT2'][0] if 'TIT2' in self.song.keys() else "No Song Title"
 
-	self.saveLDWin.title("'{0}' {1}".format(song_title, "Description")) if self.song['TCON'][0] is 'Podcast' \
+	self.saveLDWin.title("'{0}' {1}".format(song_title, "Description")) if self.song['TCON'][0] == 'Podcast' \
 		else self.saveLDWin.title("'{0}' {1}".format(song_title, "Lyrics"))
 	pos = windowSize.centerWindow(self.saveLDWin, defaults.lyricsWinWidth, defaults.lyricsWinHeight)
 	self.saveLDWin.geometry('%dx%d+%d+%d' % (pos[0], pos[1], pos[2], pos[3]))
@@ -84,7 +84,7 @@ def lyrics(self):
 		command=functools.partial(switchModes, (modes, state, textbox, save)))
 	mode.grid(row=7, column=0, padx=10)
 	
-	if textbox.get(0.0, tk.END) is not '\n':
+	if textbox.get(0.0, tk.END) != '\n':
 		modes.set("Edit Mode")
 		textbox.config(state=tk.NORMAL, cursor="xterm")
 		state.set(True)
@@ -96,8 +96,8 @@ def lyrics(self):
 		save.config(state=tk.DISABLED)
 	save.config(text="Save Description", width=15) if self.song['TCON'][0] == "Podcast" else save.config(text="Save Lyrics", width=15)
 	save.grid(row=7, column=1, padx=10)
-	close = tk.Button(self.saveLDWin, text="Close", width=15, command=functools.partial(closeWindow, self))
-	close.grid(row=7, column=2, padx=10)
+	remove = tk.Button(self.saveLDWin, text="Remove", width=15, command=functools.partial(removeLyrics, self))
+	remove.grid(row=7, column=2, padx=10)
 
 def switchModes(args):
 	modes, state, textbox, save = args
@@ -119,7 +119,16 @@ def saveFile(args):
 	self.song['USLT'] = USLT(encoding=3, lang=u'eng', text=textbox.get(1.0, 'end'))
 	self.song.save(self.song_path.get(), v2_version=3)
 	showinfo("Song Description","Description has been saved!") if self.song['TCON'] == "Podcast" else showinfo("Song Lyrics", "Lyrics have been saved!")
-	closeWindow(self)
+	self.saveLDWin.destroy()
 
-def closeWindow(self):
+def removeLyrics(self):
+	response = askyesno("Remove Lyrics?", "Are you sure you want to remove the lyrics?")
+	if response == True:
+		listOfKeys = list(self.song.keys())
+		for key in listOfKeys:
+			if 'USLT' in key:
+				self.song.pop(key)
+		self.song.save(self.song_path.get(), v2_version=3)
+		showinfo("", "Lyrics have been removed!")
+		self.getMusic()
 	self.saveLDWin.destroy()

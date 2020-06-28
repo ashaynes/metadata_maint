@@ -12,7 +12,7 @@ from mutagen.id3 import (APIC, COMM, ID3, TALB, TBPM, TCON, TDRC, TIT2, TPE1,
                          TPE2, TPOS, TRCK, USLT, ID3NoHeaderError)
 from mutagen.mp3 import MP3, HeaderNotFoundError
 from PIL import Image, ImageTk
-from skimage.util.shape import view_as_blocks
+# from skimage.util.shape import view_as_blocks
 from unidecode import unidecode
 
 import utils
@@ -105,7 +105,7 @@ def addArt(self):
             
             with Image.open(image_path) as i:
                 width, height = i.size
-            if height is not 250 and width is not 250:
+            if height != 250 and width != 250:
                 resizeArt(image_path)
 
             with open(image_path, "rb") as image:
@@ -174,7 +174,7 @@ def addArt(self):
                 showinfo("Error", f"{e.traceback.print_exc(limit=None, file=None, chain=True)}")
         else:
             showinfo("No Album Art Downloaded", "Sorry! No album art was downloaded for the selected album :(")
-    self.getMusic()
+    # self.getMusic()
         
 def downloadArt(self):
     self.songCntStr.set(f"Scraping web for album art for album \'{self.song['TALB'][0]}\' by \'{self.song['TPE2']}\'...")
@@ -274,7 +274,7 @@ def isAlbumArtInFile(file):
     '''
     os.chdir(IMAGE_PATH)
 
-    if file is "":
+    if file == "":
         return False
     else:
         try:
