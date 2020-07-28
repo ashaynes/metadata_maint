@@ -12,7 +12,6 @@ from mutagen.id3 import (APIC, COMM, ID3, TALB, TBPM, TCON, TDRC, TIT2, TPE1,
                          TPE2, TPOS, TRCK, USLT, ID3NoHeaderError)
 from mutagen.mp3 import MP3, HeaderNotFoundError
 from PIL import Image, ImageTk
-# from skimage.util.shape import view_as_blocks
 from unidecode import unidecode
 
 import utils

@@ -226,10 +226,10 @@ class EditMetadata(Frame):
 		# add total music files and Button to browse to different path
 		files = LabelFrame(master, text='Files & Folders', width=default.filesWidth, height=default.filesHeight)
 		files.grid(row=2, columnspan=4, padx=(10,0), ipadx=8, ipady=8, sticky='SEW')
-		self.lbl = Label(files, text="\nCurrent Folder Path:")
+		self.lbl = Label(files, text="\nCurrent Directory: ")
 		self.lbl.grid(row=2, columnspan=3, padx=15, sticky='W')
-		browseBtn = Button(files, text="Change Folder", width=25, command=self.getNewDirectory)
-		browseBtn.grid(row=2, column=3, sticky='E')
+		self.browseBtn = Button(files, text="Select Directory", width=25, command=self.getNewDirectory)
+		self.browseBtn.grid(row=2, column=3, sticky='E')
 		
 		# creating the Multi-column Listbox (Treeview) for the music files
 		frame = Frame(files, width=default.musicLbFrame)
@@ -785,6 +785,7 @@ class EditMetadata(Frame):
 			os.chdir(self.dname)
 			self.path.set(self.dname)
 			self.lbl.config(text=f"\nCurrent Directory: {self.path.get()}")
+			self.browseBtn.config(text="Change Directory")
 			self.getMusic()
 			self.mastermenu.entryconfig("Directory", state=NORMAL)
 			self.mastermenu.entryconfig("Search", state=NORMAL)

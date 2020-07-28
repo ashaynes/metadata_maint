@@ -40,9 +40,9 @@ def playSong(self):
 			print (freq)
 			break
 	
-	pg.mixer.pre_init(int(freq),-16,2,4096)
+	pg.mixer.pre_init(int(freq), -16, 2, 4096)
 	pg.mixer.init()
-		
+
 	try:
 		pg.mixer.music.load(self.song_path.get())
 		pg.mixer.music.play(1)
