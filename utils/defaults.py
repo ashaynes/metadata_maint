@@ -42,6 +42,8 @@ if os.name == "nt":
     convertMP3Width = 800
     albumartWinHeight = 600
     albumartWinWidth = 800
+    downloadAlbumArtHeight = 800
+    downloadAlbumArtWidth = 1600
 
 if os.name == "posix":
     width = 1255

@@ -38,12 +38,17 @@ def addArt(self):
                 # selects or if just one image is found, store that directly to the MP3 then POOF! be gone
                 showinfo("More Than One Image Downloaded", "More than one image was downloaded for the selected album. Please select your preferred album cover to be saved.")
 
-                # self.downloadAlbumArtWindow = tk.Toplevel()
-                # self.downloadAlbumArtWindow.title = "Downloaded Album Art"
-                # pos = windowSize.centerWindow(self.downloadAlbumArtWindow, defaults.downloadAlbumArtWidth, defaults.downloadAlbumArtHeight)
-                # self.downloadAlbumArtWindow.geometry('%dx%d+%d+%d' % (pos[0], pos[1], pos[2], pos[3]))
+                self.downloadAlbumArtWindow = tk.Toplevel()
+                self.downloadAlbumArtWindow.title("Downloaded Album Art")
+                pos = windowSize.centerWindow(self.downloadAlbumArtWindow, defaults.downloadAlbumArtWidth, defaults.downloadAlbumArtHeight)
+                self.downloadAlbumArtWindow.geometry(f"{pos[0]}x{pos[1]}+{pos[2]}+{pos[3]}")
 
-                # A = np.arrange(4*4).reshape(4,4)
+                # self.original = PIL.Image.open(self.default)
+                # self.resized = self.original.resize((194,194), PIL.Image.ANTIALIAS)
+                # self.albumart = PIL.ImageTk.PhotoImage(self.resized)
+                # self.canvas = Canvas(self.player, width=194, height=194)
+                # self.canvas_image = self.canvas.create_image(97, 97, image=self.albumart)
+                # self.canvas.grid(row=1, rowspan=3, padx=49, columnspan=3, sticky='NSEW')
             elif len(os.listdir()) == 1:
                 # rename image / remove "_[count]" from file name and move to main folder, create APIC and add to MP3
                 f = os.listdir()[0]
@@ -170,7 +175,7 @@ def addArt(self):
                                 thisSong.save()
             
             except Exception as e:
-                showinfo("Error", f"{e.traceback.print_exc(limit=None, file=None, chain=True)}")
+                showinfo("Error", f"{e}")
         else:
             showinfo("No Album Art Downloaded", "Sorry! No album art was downloaded for the selected album :(")
     # self.getMusic()
