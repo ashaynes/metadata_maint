@@ -1286,7 +1286,7 @@ if __name__ == '__main__':
 
 	master = Tk()
 	EditMetadata(master)
-	master.title("MP3 Music Maintenance")
+	master.title("MP3 Metadata Maintenance")
 
 	# add program icon
 	progDir = sys.path[0]
