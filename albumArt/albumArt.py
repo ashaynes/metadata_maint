@@ -18,7 +18,10 @@ import utils
 import utils.defaults as defaults
 import windows.customWindowSize as windowSize
 
-IMAGE_PATH = "C:\\Users\\Alex\\Pictures\\Downloaded Album Art\\"
+WINDOWS_IMAGE_PATH = "C:\\Users\\Alex\\Pictures\\Downloaded Album Art\\"
+LINUX_IMAGE_PATH = '/home/alex/Pictures/Downloaded Album Art'
+IMAGE_PATH = WINDOWS_IMAGE_PATH if (os.name == "nt") else LINUX_IMAGE_PATH
+
 count = 0
 
 def addArt(self):

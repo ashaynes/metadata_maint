@@ -82,9 +82,9 @@ class EditMetadata(Frame):
 		if os.name == "nt":
 			os.chdir("C:\\Code\\Music Metadata Editor\\")
 			self.default = f"{os.getcwd()}\\media\\images\\no-cover-art.jpg"
-		if os.name == "posix":
-			os.chdir('/home/alex/Music/')
-			self.default = f"{os.getcwd()}/No Image Available.jpg"
+		elif os.name == "posix":
+			os.chdir('/home/alex/Documents/metadata_maint')
+			self.default = f"{os.getcwd()}/media/images/no-cover-art.jpg"
 		
 		# register client to musicBrainz
 		mb.set_useragent("MP3 Editor", "1.0", "alexbballa@hotmail.com")
@@ -238,7 +238,7 @@ class EditMetadata(Frame):
 		self.musicLb.bind('<<TreeviewSelect>>', self.onselect)
 		self.musicLb.bind('<Button-3>', self.popup)
 		self.vsb = Scrollbar(orient="vertical", command=self.musicLb.yview)
-		self.musicLb.configure(yscrollcommand=self.vsb.set, height=16)
+		self.musicLb.configure(yscrollcommand=self.vsb.set)
 		self.musicLb.grid(row=len(self.l)+5, rowspan=3, columnspan=4, sticky='NESW', padx=15, in_=frame)
 		self.vsb.grid(column=1, row=len(self.l)+5, rowspan=3, sticky='NS', in_=frame)
 		frame.grid_columnconfigure(0, weight=1)
@@ -349,10 +349,11 @@ class EditMetadata(Frame):
 		if os.getcwd() != self.dname:
 			os.chdir(self.dname)
 		
+		songName = self.value['text']
 		if os.name == "posix":
-			self.song_path.set(f"{os.getcwd()}/{+self.value['text']}")
-		if os.name == "nt":
-			self.song_path.set(f"{os.getcwd()}\\{self.value['text']}")
+			self.song_path.set(f"{os.getcwd()}/{songName}")
+		elif os.name == "nt":
+			self.song_path.set(f"{os.getcwd()}\\{songName}")
 
 		# read .mp3 file
 		try:
@@ -1288,8 +1289,14 @@ if __name__ == '__main__':
 	EditMetadata(master)
 	master.title("MP3 Metadata Maintenance")
 
-	# add program icon
-	progDir = sys.path[0]
+	# set application screen dimensions
+	master.attributes('-zoomed', True)
 	master.resizable(0,0)
-	master.iconphoto(True, PhotoImage(file=os.path.join(progDir, 'media\\icons\\music-note-icon.png')))
+	
+	# add program icon
+	iconPath = 'media\\icons\\music-note-icon.png' if (os.name == "nt") else 'media/icons/music-note-icon.png'
+	progDir = sys.path[0]
+	master.iconphoto(True, PhotoImage(file=os.path.join(progDir, iconPath)))
+	
+	# run main application
 	master.mainloop()

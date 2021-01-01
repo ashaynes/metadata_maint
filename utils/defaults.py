@@ -7,8 +7,6 @@ being launched
 import os
 
 if os.name == "nt":
-    width = 1243
-    height = 705
     lyricsTextWidth = 57
     lyricsTextHeight = 50
     lyricsWinWidth = 405
@@ -46,16 +44,17 @@ if os.name == "nt":
     downloadAlbumArtWidth = 1600
 
 if os.name == "posix":
-    width = 1255
-    height = 705
     lyricsColumn = 7
-    lyricsTextWidth = 40
-    lyricsTextHeight = 18
+    lyricsTextWidth = 45
+    lyricsTextHeight = 46
     filesWidth = 5000
-    filesHeight = 500
+    filesHeight = 10
     renameWidth = 400
     renameHeight = 75
     metadataEntryWidth = 60
+    metadataOptionMenuWidth = 55
+    musicLbFrame = 2000
+    musicLbHeight = 12
     convertWidth1 = 490
     convertWidth2 = 45
     convertHeightWin = 265
