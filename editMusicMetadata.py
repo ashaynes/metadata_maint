@@ -83,7 +83,7 @@ class EditMetadata(Frame):
 			os.chdir("C:\\Code\\Music Metadata Editor\\")
 			self.default = f"{os.getcwd()}\\media\\images\\no-cover-art.jpg"
 		elif os.name == "posix":
-			os.chdir('/home/alex/Documents/metadata_maint')
+			os.chdir('/home/home/Documents/MusicMetadata')
 			self.default = f"{os.getcwd()}/media/images/no-cover-art.jpg"
 		
 		# register client to musicBrainz
@@ -776,7 +776,7 @@ class EditMetadata(Frame):
 		if directory == '' and os.name == "posix":
 			self.mastermenu.entryconfig("Directory", state=DISABLED)
 			self.mastermenu.entryconfig("Search", state=DISABLED)
-			self.dname = '/home/alex/Music'
+			self.dname = '/home/home/Music'
 		elif directory == '' and os.name == "nt":
 			self.mastermenu.entryconfig("Directory", state=DISABLED)
 			self.mastermenu.entryconfig("Search", state=DISABLED)
